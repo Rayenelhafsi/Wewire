@@ -5,9 +5,11 @@ import '../../models/technician_model.dart';
 import '../../models/operator_model.dart';
 import '../../models/machine_model.dart';
 import '../../models/issue_model.dart';
+import '../../models/private_chat_model.dart';
 import '../../screens/forms/technician_form.dart';
 import '../../screens/forms/operator_form.dart';
 import '../../screens/forms/machine_form.dart';
+import '../../screens/chat/chat_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final app_models.User user;
@@ -21,12 +23,18 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
 
-  static final List<Widget> _widgetOptions = [
-    TechniciansManagement(),
-    OperatorsManagement(),
-    MachinesManagement(),
-    IssuesManagement(),
-  ];
+  List<Widget> _widgetOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _widgetOptions = [
+      TechniciansManagement(user: widget.user),
+      OperatorsManagement(),
+      MachinesManagement(),
+      IssuesManagement(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -349,13 +357,23 @@ class _IssuesManagementState extends State<IssuesManagement> {
 }
 
 class TechniciansManagement extends StatefulWidget {
-  const TechniciansManagement({super.key});
+  final app_models.User user;
+
+  const TechniciansManagement({super.key, required this.user});
 
   @override
   State<TechniciansManagement> createState() => _TechniciansManagementState();
 }
 
 class _TechniciansManagementState extends State<TechniciansManagement> {
+  late final app_models.User currentUser;
+  
+  @override
+  void initState() {
+    super.initState();
+    currentUser = widget.user;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -402,35 +420,76 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
                   itemCount: technicians.length,
                   itemBuilder: (context, index) {
                     final technician = technicians[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: const Icon(Icons.engineering),
-                        title: Text(technician.name),
-                        subtitle: Text('Matricule: ${technician.matricule}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => TechnicianForm(technician: technician),
+                    return StreamBuilder<List<PrivateChat>>(
+                      stream: FirebaseService.getUserPrivateChats(currentUser.id),
+                      builder: (context, chatSnapshot) {
+                        final unreadCount = _getUnreadCountForTechnician(chatSnapshot.data ?? [], technician.matricule);
+                        
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: Stack(
+                              children: [
+                                const Icon(Icons.engineering),
+                                if (unreadCount > 0)
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 12,
+                                        minHeight: 12,
+                                      ),
+                                      child: Text(
+                                        unreadCount.toString(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
                                   ),
-                                );
-                              },
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                              onPressed: () {
-                                _deleteTechnician(technician.matricule);
-                              },
+                            title: Text(technician.name),
+                            subtitle: Text('Matricule: ${technician.matricule}'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.chat, size: 20, color: Colors.blue),
+                                  onPressed: () {
+                                    _startChatWithTechnician(context, technician);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 20),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => TechnicianForm(technician: technician),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                                  onPressed: () {
+                                    _deleteTechnician(technician.matricule);
+                                  },
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );
@@ -440,6 +499,56 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
         ],
       ),
     );
+  }
+
+  int _getUnreadCountForTechnician(List<PrivateChat> chats, String technicianId) {
+    for (final chat in chats) {
+      if (chat.participant2Id == technicianId || chat.participant1Id == technicianId) {
+        return chat.getUnreadCount(currentUser.id);
+      }
+    }
+    return 0;
+  }
+
+  Future<void> _startChatWithTechnician(BuildContext context, Technician technician) async {
+    try {
+      // Check if chat already exists
+      final existingChatId = await FirebaseService.findExistingPrivateChat(
+        currentUser.id,
+        technician.matricule,
+      );
+
+      String chatId;
+      if (existingChatId != null) {
+        chatId = existingChatId;
+      } else {
+        // Create new chat
+        chatId = await FirebaseService.createPrivateChat(
+          currentUser.id,
+          currentUser.name,
+          currentUser.role.name,
+          technician.matricule,
+          technician.name,
+          'maintenance_service',
+        );
+      }
+
+      // Navigate to chat screen using named route
+      Navigator.pushNamed(
+        context,
+        '/chat',
+        arguments: {
+          'chatId': chatId,
+          'isPrivateChat': true,
+          'title': 'Chat with ${technician.name}',
+          'user': currentUser,
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error starting chat: $e')),
+      );
+    }
   }
 
   void _deleteTechnician(String matricule) {

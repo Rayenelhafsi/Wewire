@@ -1,6 +1,7 @@
 class ChatMessage {
   final String id;
-  final String issueId;
+  final String? issueId;
+  final String? privateChatId;
   final String senderId;
   final String content;
   final MessageType type;
@@ -9,7 +10,8 @@ class ChatMessage {
 
   ChatMessage({
     required this.id,
-    required this.issueId,
+    this.issueId,
+    this.privateChatId,
     required this.senderId,
     required this.content,
     required this.type,
@@ -19,7 +21,8 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
         id: json['id'] ?? '',
-        issueId: json['issueId'] ?? '',
+        issueId: json['issueId'],
+        privateChatId: json['privateChatId'],
         senderId: json['senderId'] ?? '',
         content: json['content'] ?? '',
         type: MessageType.values.firstWhere((e) => e.toString() == 'MessageType.${json['type']}'),
@@ -29,13 +32,17 @@ class ChatMessage {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'issueId': issueId,
+        if (issueId != null) 'issueId': issueId,
+        if (privateChatId != null) 'privateChatId': privateChatId,
         'senderId': senderId,
         'content': content,
         'type': type.name,
         'timestamp': timestamp.toIso8601String(),
         'isRead': isRead,
       };
+
+  bool get isPrivateChat => privateChatId != null;
+  bool get isIssueChat => issueId != null;
 }
 
 enum MessageType {

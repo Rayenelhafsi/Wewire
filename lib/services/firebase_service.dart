@@ -6,6 +6,8 @@ import '../models/session_model.dart';
 import '../models/machine_model.dart';
 import '../models/issue_model.dart';
 import '../models/user_model.dart' as app_models;
+import '../models/private_chat_model.dart';
+import '../models/chat_message_model.dart';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -164,6 +166,169 @@ class FirebaseService {
         .doc(sessionId)
         .snapshots()
         .map((doc) => List<String>.from(doc.data()?['chatMessages'] ?? []));
+  }
+
+  // Private Chat operations
+  static Future<String> createPrivateChat(String participant1Id, String participant1Name, String participant1Role,
+                                         String participant2Id, String participant2Name, String participant2Role) async {
+    final chatId = 'private_chat_${DateTime.now().millisecondsSinceEpoch}';
+    final now = DateTime.now();
+    
+    final privateChat = PrivateChat(
+      id: chatId,
+      participant1Id: participant1Id,
+      participant2Id: participant2Id,
+      participant1Name: participant1Name,
+      participant2Name: participant2Name,
+      participant1Role: participant1Role,
+      participant2Role: participant2Role,
+      createdAt: now,
+      lastMessageAt: now,
+    );
+
+    await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .set(privateChat.toJson());
+
+    return chatId;
+  }
+
+  static Future<PrivateChat?> getPrivateChat(String chatId) async {
+    final doc = await _firestore.collection('private_chats').doc(chatId).get();
+    if (doc.exists) {
+      return PrivateChat.fromJson(doc.data()!);
+    }
+    return null;
+  }
+
+  static Stream<List<PrivateChat>> getUserPrivateChats(String userId) {
+    return _firestore
+        .collection('private_chats')
+        .where('isActive', isEqualTo: true)
+        .where('participant1Id', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => PrivateChat.fromJson(doc.data()))
+            .toList());
+  }
+
+  static Future<void> sendPrivateMessage(String chatId, ChatMessage message) async {
+    // Save the message
+    await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .collection('messages')
+        .doc(message.id)
+        .set(message.toJson());
+
+    // Update the chat with last message info
+    await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .update({
+          'lastMessage': message.toJson(),
+          'lastMessageAt': FieldValue.serverTimestamp(),
+        });
+
+    // Update unread count for the other participant
+    final chatDoc = await _firestore.collection('private_chats').doc(chatId).get();
+    if (chatDoc.exists) {
+      final chat = PrivateChat.fromJson(chatDoc.data()!);
+      final isParticipant1 = chat.participant1Id == message.senderId;
+      
+      await _firestore
+          .collection('private_chats')
+          .doc(chatId)
+          .update({
+            isParticipant1 ? 'unreadCount2' : 'unreadCount1': FieldValue.increment(1),
+          });
+    }
+  }
+
+  static Stream<List<ChatMessage>> getPrivateChatMessages(String chatId) {
+    return _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ChatMessage.fromJson(doc.data()))
+            .toList());
+  }
+
+  static Future<void> markPrivateMessagesAsRead(String chatId, String userId) async {
+    final chatDoc = await _firestore.collection('private_chats').doc(chatId).get();
+    if (chatDoc.exists) {
+      final chat = PrivateChat.fromJson(chatDoc.data()!);
+      final isParticipant1 = chat.participant1Id == userId;
+      
+      // Reset unread count
+      await _firestore
+          .collection('private_chats')
+          .doc(chatId)
+          .update({
+            isParticipant1 ? 'unreadCount1' : 'unreadCount2': 0,
+          });
+
+      // Mark all messages as read
+      final messagesQuery = await _firestore
+          .collection('private_chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      for (var doc in messagesQuery.docs) {
+        await doc.reference.update({'isRead': true});
+      }
+    }
+  }
+
+  static Future<void> linkChatToIssue(String chatId, String issueId) async {
+    await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .update({
+          'linkedIssueId': issueId,
+        });
+  }
+
+  static Future<void> closePrivateChat(String chatId) async {
+    await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .update({
+          'isActive': false,
+          'closedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  static Future<String?> findExistingPrivateChat(String userId1, String userId2) async {
+    final query1 = await _firestore
+        .collection('private_chats')
+        .where('participant1Id', isEqualTo: userId1)
+        .where('participant2Id', isEqualTo: userId2)
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    if (query1.docs.isNotEmpty) {
+      return query1.docs.first.id;
+    }
+
+    final query2 = await _firestore
+        .collection('private_chats')
+        .where('participant1Id', isEqualTo: userId2)
+        .where('participant2Id', isEqualTo: userId1)
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    if (query2.docs.isNotEmpty) {
+      return query2.docs.first.id;
+    }
+
+    return null;
   }
 
   // Work tracking

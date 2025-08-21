@@ -32,7 +32,26 @@ class MainApp extends StatelessWidget {
         '/admin-login': (context) => const LoginScreen(),
         '/matricule-login': (context) => const MatriculeLoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
-        '/chat': (context) => const ChatScreen(),
+        '/chat': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          if (args != null && args['isPrivateChat'] == true) {
+            return ChatScreen(
+              chatId: args['chatId'],
+              isPrivateChat: true,
+              title: args['title'],
+              user: args['user'],
+            );
+          } else {
+            // For issue chats
+            return ChatScreen(
+              chatId: args?['issueId'] ?? '',
+              isPrivateChat: false,
+              title: args?['title'] ?? 'Chat',
+              issue: args?['issue'],
+              user: args?['user'],
+            );
+          }
+        },
       },
     );
   }
