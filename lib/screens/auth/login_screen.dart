@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
+import '../../models/user_model.dart' as app_models;
+import '../../services/firebase_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,7 +13,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  UserRole? _selectedRole;
 
   @override
   void dispose() {
@@ -21,23 +21,57 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
-    if (_formKey.currentState!.validate() && _selectedRole != null) {
-      // In a real app, this would authenticate with a backend
-      // For demo purposes, we'll create a mock user
-      final mockUser = User(
-        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-        name: _emailController.text.split('@')[0],
-        email: _emailController.text,
-        role: _selectedRole!,
-        createdAt: DateTime.now(),
+  void _handleLogin() async {
+    if (_formKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
       );
 
-      Navigator.pushReplacementNamed(
-        context,
-        '/dashboard',
-        arguments: mockUser,
-      );
+      try {
+        // Authenticate admin user using FirebaseService
+        final user = await FirebaseService.authenticateAdmin(
+          email,
+          password,
+        );
+
+        // Dismiss loading indicator
+        Navigator.of(context).pop();
+
+        if (user != null) {
+          // Authentication successful
+          Navigator.pushReplacementNamed(
+            context,
+            '/dashboard',
+            arguments: user,
+          );
+        } else {
+          // Authentication failed
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Authentication failed. Please check your credentials.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        // Dismiss loading indicator
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during authentication: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -96,42 +130,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Select your role:',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<UserRole>(
-                    value: _selectedRole,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    items: UserRole.values.map((role) {
-                      return DropdownMenuItem(
-                        value: role,
-                        child: Text(
-                          role.name
-                              .replaceAllMapped(
-                                RegExp(r'([A-Z])'),
-                                (match) => ' ${match.group(0)}',
-                              )
-                              .trim(),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRole = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null) {
-                        return 'Please select a role';
                       }
                       return null;
                     },

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
+import '../../models/user_model.dart' as app_models;
 import 'operator_dashboard.dart';
 import 'quality_agent_dashboard.dart';
 import 'maintenance_dashboard.dart';
@@ -10,23 +10,14 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final user = ModalRoute.of(context)?.settings.arguments as app_models.User?;
     
-    if (args == null) {
-      // Handle the case where arguments are null (e.g., redirect to login)
+    if (user == null) {
+      // Handle the case where user is null (e.g., redirect to login)
       return const Scaffold(
         body: Center(child: Text('No user data found. Please login again.')),
       );
     }
-    
-    // Convert the map to a User object
-    final user = User(
-      id: args['matricule'] ?? '',
-      name: args['name'] ?? '',
-      email: '', // Email not provided in login
-      role: _getUserRoleFromType(args['type'] ?? ''),
-      createdAt: DateTime.now(),
-    );
 
     return Scaffold(
       appBar: AppBar(
@@ -35,7 +26,7 @@ class DashboardScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
+              Navigator.pushReplacementNamed(context, '/');
             },
           ),
         ],
@@ -44,28 +35,15 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  UserRole _getUserRoleFromType(String type) {
-    switch (type) {
-      case 'operator':
-        return UserRole.operator;
-      case 'technician':
-        return UserRole.maintenanceService;
-      case 'admin':
-        return UserRole.admin;
-      default:
-        return UserRole.operator;
-    }
-  }
-
-  Widget _buildDashboardForRole(User user) {
+  Widget _buildDashboardForRole(app_models.User user) {
     switch (user.role) {
-      case UserRole.operator:
+      case app_models.UserRole.operator:
         return OperatorDashboard(user: user);
-      case UserRole.qualityAgent:
+      case app_models.UserRole.qualityAgent:
         return QualityAgentDashboard(user: user);
-      case UserRole.maintenanceService:
+      case app_models.UserRole.maintenanceService:
         return MaintenanceDashboard(user: user);
-      case UserRole.admin:
+      case app_models.UserRole.admin:
         return AdminDashboard(user: user);
     }
   }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
+import '../../models/user_model.dart' as app_models;
 import '../../models/machine_model.dart';
 import '../../models/issue_model.dart';
 import '../../services/firebase_service.dart';
 
 class OperatorDashboard extends StatefulWidget {
-  final User user;
+  final app_models.User user;
 
   const OperatorDashboard({super.key, required this.user});
 

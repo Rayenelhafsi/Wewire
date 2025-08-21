@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'screens/auth/landing_screen.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/auth/matricule_login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/chat/chat_screen.dart';
@@ -24,9 +26,11 @@ class MainApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      initialRoute: '/login',
+      initialRoute: '/',
       routes: {
-        '/login': (context) => const MatriculeLoginScreen(),
+        '/': (context) => const LandingScreen(),
+        '/admin-login': (context) => const LoginScreen(),
+        '/matricule-login': (context) => const MatriculeLoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
         '/chat': (context) => const ChatScreen(),
       },

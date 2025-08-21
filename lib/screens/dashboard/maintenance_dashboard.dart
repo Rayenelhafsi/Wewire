@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
+import '../../models/user_model.dart' as app_models;
 import '../../models/issue_model.dart';
 
 class MaintenanceDashboard extends StatefulWidget {
-  final User user;
+  final app_models.User user;
 
   const MaintenanceDashboard({super.key, required this.user});
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
+import '../../models/user_model.dart' as app_models;
 import '../../services/firebase_service.dart';
 import '../../models/technician_model.dart';
 import '../../models/operator_model.dart';
@@ -10,7 +10,7 @@ import '../../screens/forms/operator_form.dart';
 import '../../screens/forms/machine_form.dart';
 
 class AdminDashboard extends StatefulWidget {
-  final User user;
+  final app_models.User user;
 
   const AdminDashboard({super.key, required this.user});
 
