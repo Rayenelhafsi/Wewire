@@ -1,0 +1,220 @@
+import 'package:flutter/material.dart';
+import '../../models/user_model.dart';
+import '../../models/machine_model.dart';
+import '../../models/issue_model.dart';
+
+class OperatorDashboard extends StatefulWidget {
+  final User user;
+
+  const OperatorDashboard({super.key, required this.user});
+
+  @override
+  State<OperatorDashboard> createState() => _OperatorDashboardState();
+}
+
+class _OperatorDashboardState extends State<OperatorDashboard> {
+  final List<Machine> _machines = [
+    Machine(
+      id: '1',
+      name: 'CNC Machine 1',
+      model: 'Haas VF-2',
+      location: 'Production Line A',
+      status: MachineStatus.operational,
+      lastMaintenance: DateTime.now().subtract(const Duration(days: 7)),
+      assignedOperatorId: 'user_1',
+    ),
+    Machine(
+      id: '2',
+      name: 'Injection Molding',
+      model: 'Arburg 420C',
+      location: 'Production Line B',
+      status: MachineStatus.needsAttention,
+      lastMaintenance: DateTime.now().subtract(const Duration(days: 14)),
+      assignedOperatorId: 'user_1',
+    ),
+  ];
+
+  final List<Issue> _reportedIssues = [];
+
+  void _reportIssue(Machine machine) {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    IssuePriority selectedPriority = IssuePriority.medium;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Issue'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Machine: ${machine.name}'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Issue Title',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<IssuePriority>(
+                value: selectedPriority,
+                decoration: const InputDecoration(
+                  labelText: 'Priority',
+                  border: OutlineInputBorder(),
+                ),
+                items: IssuePriority.values.map((priority) {
+                  return DropdownMenuItem(
+                    value: priority,
+                    child: Text(priority.name.toUpperCase()),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedPriority = value!;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.isNotEmpty) {
+                final newIssue = Issue(
+                  id: 'issue_${DateTime.now().millisecondsSinceEpoch}',
+                  machineId: machine.id,
+                  reporterId: widget.user.id,
+                  title: titleController.text,
+                  description: descriptionController.text,
+                  priority: selectedPriority,
+                  status: IssueStatus.reported,
+                  createdAt: DateTime.now(),
+                );
+                
+                setState(() {
+                  _reportedIssues.add(newIssue);
+                });
+                
+                Navigator.pop(context);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Issue reported successfully')),
+                );
+              }
+            },
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Machines',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _machines.length,
+              itemBuilder: (context, index) {
+                final machine = _machines[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: _getStatusColor(machine.status),
+                      child: const Icon(Icons.build, color: Colors.white),
+                    ),
+                    title: Text(machine.name),
+                    subtitle: Text('${machine.model} - ${machine.location}'),
+                    trailing: ElevatedButton(
+                      onPressed: () => _reportIssue(machine),
+                      child: const Text('Report Issue'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Reported Issues',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _reportedIssues.isEmpty
+                ? const Center(
+                    child: Text('No issues reported yet'),
+                  )
+                : ListView.builder(
+                    itemCount: _reportedIssues.length,
+                    itemBuilder: (context, index) {
+                      final issue = _reportedIssues[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text(issue.title),
+                          subtitle: Text('Status: ${issue.status.name}'),
+                          trailing: Chip(
+                            label: Text(issue.priority.name.toUpperCase()),
+                            backgroundColor: _getPriorityColor(issue.priority),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(MachineStatus status) {
+    switch (status) {
+      case MachineStatus.operational:
+        return Colors.green;
+      case MachineStatus.needsAttention:
+        return Colors.orange;
+      case MachineStatus.underMaintenance:
+        return Colors.blue;
+      case MachineStatus.broken:
+        return Colors.red;
+    }
+  }
+
+  Color _getPriorityColor(IssuePriority priority) {
+    switch (priority) {
+      case IssuePriority.low:
+        return Colors.green.shade100;
+      case IssuePriority.medium:
+        return Colors.orange.shade100;
+      case IssuePriority.high:
+        return Colors.red.shade100;
+      case IssuePriority.critical:
+        return Colors.red.shade300;
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "505805164580",
+    "project_id": "wewire-18bc2",
+    "storage_bucket": "wewire-18bc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:505805164580:android:973439ec88414cf1f548b1",
+        "android_client_info": {
+          "package_name": "com.example.wewire_maintenance_system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkshOHnxMV7P39qS_cSCSSMoARdapraeQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
