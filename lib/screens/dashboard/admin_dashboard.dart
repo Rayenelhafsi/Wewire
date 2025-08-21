@@ -4,6 +4,7 @@ import '../../services/firebase_service.dart';
 import '../../models/technician_model.dart';
 import '../../models/operator_model.dart';
 import '../../models/machine_model.dart';
+import '../../models/issue_model.dart';
 import '../../screens/forms/technician_form.dart';
 import '../../screens/forms/operator_form.dart';
 import '../../screens/forms/machine_form.dart';
@@ -20,10 +21,11 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _widgetOptions = [
+  static final List<Widget> _widgetOptions = [
     TechniciansManagement(),
     OperatorsManagement(),
     MachinesManagement(),
+    IssuesManagement(),
   ];
 
   void _onItemTapped(int index) {
@@ -50,10 +52,297 @@ class _AdminDashboardState extends State<AdminDashboard> {
             icon: Icon(Icons.build),
             label: 'Machines',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Issues',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
         onTap: _onItemTapped,
+      ),
+    );
+  }
+}
+
+class IssuesManagement extends StatefulWidget {
+  const IssuesManagement({super.key});
+
+  @override
+  State<IssuesManagement> createState() => _IssuesManagementState();
+}
+
+class _IssuesManagementState extends State<IssuesManagement> {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Issues Management',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<List<Issue>>(
+              stream: FirebaseService.getAllIssues(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final issues = snapshot.data ?? [];
+
+                if (issues.isEmpty) {
+                  return const Center(child: Text('No issues found'));
+                }
+
+                return ListView.builder(
+                  itemCount: issues.length,
+                  itemBuilder: (context, index) {
+                    final issue = issues[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: Icon(
+                          _getStatusIcon(issue.status),
+                          color: _getStatusColor(issue.status),
+                        ),
+                        title: Text(issue.title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('ID: ${issue.id}'),
+                            Text('Status: ${issue.status.name}'),
+                            Text('Created: ${_formatDate(issue.createdAt)}'),
+                            if (issue.description.isNotEmpty)
+                              Text('Description: ${issue.description}'),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.engineering, size: 20),
+                              onPressed: () {
+                                _showAssignTechnicianDialog(issue);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () {
+                                _showStatusUpdateDialog(issue);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                              onPressed: () {
+                                _deleteIssue(issue.id);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getStatusIcon(IssueStatus status) {
+    switch (status) {
+      case IssueStatus.reported:
+        return Icons.error_outline;
+      case IssueStatus.acknowledged:
+        return Icons.info_outline;
+      case IssueStatus.inProgress:
+        return Icons.build;
+      case IssueStatus.resolved:
+        return Icons.check_circle;
+      case IssueStatus.closed:
+        return Icons.archive;
+    }
+  }
+
+  Color _getStatusColor(IssueStatus status) {
+    switch (status) {
+      case IssueStatus.reported:
+        return Colors.orange;
+      case IssueStatus.acknowledged:
+        return Colors.blue;
+      case IssueStatus.inProgress:
+        return Colors.blue;
+      case IssueStatus.resolved:
+        return Colors.green;
+      case IssueStatus.closed:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _showStatusUpdateDialog(Issue issue) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Issue Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: IssueStatus.values.map((status) {
+            return ListTile(
+              leading: Icon(_getStatusIcon(status), color: _getStatusColor(status)),
+              title: Text(status.name),
+              onTap: () {
+                Navigator.pop(context);
+                _updateIssueStatus(issue, status);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _updateIssueStatus(Issue issue, IssueStatus newStatus) {
+    final updatedIssue = issue.copyWith(status: newStatus);
+    FirebaseService.updateIssue(updatedIssue).then((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Issue status updated successfully')),
+      );
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating issue: $error')),
+      );
+    });
+  }
+
+  void _showAssignTechnicianDialog(Issue issue) {
+    Technician? selectedTechnician;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Assign Technician'),
+        content: StreamBuilder<List<Technician>>(
+          stream: FirebaseService.getAllTechnicians(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CircularProgressIndicator();
+            }
+
+            final technicians = snapshot.data ?? [];
+
+            if (technicians.isEmpty) {
+              return const Text('No technicians available');
+            }
+
+            return DropdownButtonFormField<Technician>(
+              value: selectedTechnician,
+              decoration: const InputDecoration(
+                labelText: 'Select Technician',
+                border: OutlineInputBorder(),
+              ),
+              items: technicians.map((technician) {
+                return DropdownMenuItem<Technician>(
+                  value: technician,
+                  child: Text('${technician.name} (${technician.matricule})'),
+                );
+              }).toList(),
+              onChanged: (technician) {
+                selectedTechnician = technician;
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'Please select a technician';
+                }
+                return null;
+              },
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (selectedTechnician == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please select a technician')),
+                );
+                return;
+              }
+
+              final updatedIssue = issue.copyWith(
+                assignedMaintenanceId: selectedTechnician!.matricule,
+                status: IssueStatus.acknowledged,
+              );
+
+              try {
+                await FirebaseService.updateIssue(updatedIssue);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Technician ${selectedTechnician!.name} assigned successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error assigning technician: $e')),
+                );
+              }
+            },
+            child: const Text('Assign'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteIssue(String id) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Issue'),
+        content: const Text('Are you sure you want to delete this issue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await FirebaseService.deleteIssue(id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Issue deleted successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error deleting issue: $e')),
+                );
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }

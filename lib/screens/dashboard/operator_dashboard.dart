@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../models/machine_model.dart';
 import '../../models/issue_model.dart';
+import '../../services/firebase_service.dart';
 
 class OperatorDashboard extends StatefulWidget {
   final User user;
@@ -13,33 +14,10 @@ class OperatorDashboard extends StatefulWidget {
 }
 
 class _OperatorDashboardState extends State<OperatorDashboard> {
-  final List<Machine> _machines = [
-    Machine(
-      id: '1',
-      name: 'CNC Machine 1',
-      model: 'Haas VF-2',
-      location: 'Production Line A',
-      status: MachineStatus.operational,
-      lastMaintenance: DateTime.now().subtract(const Duration(days: 7)),
-      assignedOperatorId: 'user_1',
-    ),
-    Machine(
-      id: '2',
-      name: 'Injection Molding',
-      model: 'Arburg 420C',
-      location: 'Production Line B',
-      status: MachineStatus.needsAttention,
-      lastMaintenance: DateTime.now().subtract(const Duration(days: 14)),
-      assignedOperatorId: 'user_1',
-    ),
-  ];
-
-  final List<Issue> _reportedIssues = [];
-
   void _reportIssue(Machine machine) {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    IssuePriority selectedPriority = IssuePriority.medium;
+    IssuePriority? selectedPriority;
 
     showDialog(
       context: context,
@@ -54,7 +32,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
               TextField(
                 controller: titleController,
                 decoration: const InputDecoration(
-                  labelText: 'Issue Title',
+                  labelText: 'Issue Title*',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -63,7 +41,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                 controller: descriptionController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Description',
+                  labelText: 'Description*',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -71,17 +49,23 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
               DropdownButtonFormField<IssuePriority>(
                 value: selectedPriority,
                 decoration: const InputDecoration(
-                  labelText: 'Priority',
+                  labelText: 'Priority Level*',
                   border: OutlineInputBorder(),
                 ),
                 items: IssuePriority.values.map((priority) {
-                  return DropdownMenuItem(
+                  return DropdownMenuItem<IssuePriority>(
                     value: priority,
                     child: Text(priority.name.toUpperCase()),
                   );
                 }).toList(),
-                onChanged: (value) {
-                  selectedPriority = value!;
+                onChanged: (priority) {
+                  selectedPriority = priority;
+                },
+                validator: (value) {
+                  if (value == null) {
+                    return 'Please select a priority level';
+                  }
+                  return null;
                 },
               ),
             ],
@@ -93,27 +77,52 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                final newIssue = Issue(
-                  id: 'issue_${DateTime.now().millisecondsSinceEpoch}',
-                  machineId: machine.id,
-                  reporterId: widget.user.id,
-                  title: titleController.text,
-                  description: descriptionController.text,
-                  priority: selectedPriority,
-                  status: IssueStatus.reported,
-                  createdAt: DateTime.now(),
+            onPressed: () async {
+              // Validate required fields
+              if (titleController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter an issue title')),
                 );
-                
-                setState(() {
-                  _reportedIssues.add(newIssue);
-                });
+                return;
+              }
+
+              if (descriptionController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a description')),
+                );
+                return;
+              }
+
+              if (selectedPriority == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please select a priority level')),
+                );
+                return;
+              }
+
+              final newIssue = Issue(
+                id: 'issue_${DateTime.now().millisecondsSinceEpoch}',
+                machineId: machine.id,
+                reporterId: widget.user.id,
+                title: titleController.text,
+                description: descriptionController.text,
+                priority: selectedPriority!,
+                status: IssueStatus.reported,
+                createdAt: DateTime.now(),
+              );
+              
+              // Save to Firestore
+              try {
+                await FirebaseService.saveIssue(newIssue);
                 
                 Navigator.pop(context);
                 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Issue reported successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to report issue: $e')),
                 );
               }
             },
@@ -137,24 +146,49 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView.builder(
-              itemCount: _machines.length,
-              itemBuilder: (context, index) {
-                final machine = _machines[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: _getStatusColor(machine.status),
-                      child: const Icon(Icons.build, color: Colors.white),
-                    ),
-                    title: Text(machine.name),
-                    subtitle: Text('${machine.model} - ${machine.location}'),
-                    trailing: ElevatedButton(
-                      onPressed: () => _reportIssue(machine),
-                      child: const Text('Report Issue'),
-                    ),
-                  ),
+            child: StreamBuilder<List<Machine>>(
+              stream: FirebaseService.getMachinesByAssignedOperator(widget.user.id),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final machines = snapshot.data ?? [];
+
+                if (machines.isEmpty) {
+                  return const Center(
+                    child: Text('No machines assigned to you'),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: machines.length,
+                  itemBuilder: (context, index) {
+                    final machine = machines[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: _getStatusColor(machine.status),
+                          child: const Icon(Icons.build, color: Colors.white),
+                        ),
+                        title: Text(machine.name),
+                        subtitle: Text('${machine.model} - ${machine.location}'),
+                        trailing: ElevatedButton(
+                          onPressed: () => _reportIssue(machine),
+                          child: const Text('Report Issue'),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -166,26 +200,50 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: _reportedIssues.isEmpty
-                ? const Center(
+            child: StreamBuilder<List<Issue>>(
+              stream: FirebaseService.getAllIssues(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final allIssues = snapshot.data ?? [];
+                final reportedIssues = allIssues
+                    .where((issue) => issue.reporterId == widget.user.id)
+                    .toList();
+
+                if (reportedIssues.isEmpty) {
+                  return const Center(
                     child: Text('No issues reported yet'),
-                  )
-                : ListView.builder(
-                    itemCount: _reportedIssues.length,
-                    itemBuilder: (context, index) {
-                      final issue = _reportedIssues[index];
-                      return Card(
-                        child: ListTile(
-                          title: Text(issue.title),
-                          subtitle: Text('Status: ${issue.status.name}'),
-                          trailing: Chip(
-                            label: Text(issue.priority.name.toUpperCase()),
-                            backgroundColor: _getPriorityColor(issue.priority),
-                          ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: reportedIssues.length,
+                  itemBuilder: (context, index) {
+                    final issue = reportedIssues[index];
+                    return Card(
+                      child: ListTile(
+                        title: Text(issue.title),
+                        subtitle: Text('Status: ${issue.status.name}'),
+                        trailing: Chip(
+                          label: Text(issue.priority.name.toUpperCase()),
+                          backgroundColor: _getPriorityColor(issue.priority),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),

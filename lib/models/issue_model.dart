@@ -52,6 +52,34 @@ class Issue {
         'assignedMaintenanceId': assignedMaintenanceId,
         'tags': tags,
       };
+
+  Issue copyWith({
+    String? id,
+    String? machineId,
+    String? reporterId,
+    String? title,
+    String? description,
+    IssuePriority? priority,
+    IssueStatus? status,
+    DateTime? createdAt,
+    DateTime? resolvedAt,
+    String? assignedMaintenanceId,
+    List<String>? tags,
+  }) {
+    return Issue(
+      id: id ?? this.id,
+      machineId: machineId ?? this.machineId,
+      reporterId: reporterId ?? this.reporterId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      priority: priority ?? this.priority,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      assignedMaintenanceId: assignedMaintenanceId ?? this.assignedMaintenanceId,
+      tags: tags ?? this.tags,
+    );
+  }
 }
 
 enum IssuePriority {

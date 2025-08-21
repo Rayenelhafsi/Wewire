@@ -3,6 +3,7 @@ import '../models/operator_model.dart';
 import '../models/technician_model.dart';
 import '../models/session_model.dart';
 import '../models/machine_model.dart';
+import '../models/issue_model.dart';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -124,6 +125,27 @@ class FirebaseService {
             snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList());
   }
 
+  static Stream<List<Machine>> getMachinesByAssignedOperator(String operatorId) {
+    return _firestore
+        .collection('machines')
+        .where('assignedOperatorId', isEqualTo: operatorId)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList());
+  }
+
+  static Stream<List<Machine>> getMachinesByAssignedOperatorIds(List<String> machineIds) {
+    if (machineIds.isEmpty) {
+      return Stream.value([]);
+    }
+    return _firestore
+        .collection('machines')
+        .where(FieldPath.documentId, whereIn: machineIds)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList());
+  }
+
   // Chat operations
   static Future<void> sendMessage(String sessionId, String message) async {
     await _firestore
@@ -179,5 +201,41 @@ class FirebaseService {
         .orderBy('startTime', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  // Issue operations
+  static Future<void> saveIssue(Issue issue) async {
+    await _firestore
+        .collection('issues')
+        .doc(issue.id)
+        .set(issue.toJson());
+  }
+
+  static Future<Issue?> getIssue(String id) async {
+    final doc = await _firestore.collection('issues').doc(id).get();
+    if (doc.exists) {
+      return Issue.fromJson(doc.data()!);
+    }
+    return null;
+  }
+
+  static Future<void> deleteIssue(String id) async {
+    await _firestore.collection('issues').doc(id).delete();
+  }
+
+  static Stream<List<Issue>> getAllIssues() {
+    return _firestore
+        .collection('issues')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Issue.fromJson(doc.data())).toList());
+  }
+
+  static Future<void> updateIssue(Issue issue) async {
+    await _firestore
+        .collection('issues')
+        .doc(issue.id)
+        .update(issue.toJson());
   }
 }
