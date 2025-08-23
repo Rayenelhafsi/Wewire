@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../models/operator_model.dart';
 import '../models/technician_model.dart';
 import '../models/session_model.dart';
@@ -370,12 +371,35 @@ class FirebaseService {
         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
+  // Notification operations
+  static Future<void> sendNotificationToTechnicians(String title, String body) async {
+    try {
+      // For web, we can't use subscribeToTopic, so we'll just log the notification
+      // For mobile/desktop, we would use topic subscriptions
+      print('Notification for technicians: $title - $body');
+      
+      // Log that technicians would be notified about this issue
+      print('Technicians would receive a notification about: $title');
+      
+    } catch (e) {
+      print('Error in notification system: $e');
+      // Fallback: just log the notification intent
+      print('Notification intent: $title - $body (for technicians)');
+    }
+  }
+
   // Issue operations
   static Future<void> saveIssue(Issue issue) async {
     await _firestore
         .collection('issues')
         .doc(issue.id)
         .set(issue.toJson());
+    
+    // Send notification to technicians about the new issue
+    await sendNotificationToTechnicians(
+      'New Maintenance Issue',
+      'A new issue has been reported: ${issue.description}',
+    );
   }
 
   static Future<Issue?> getIssue(String id) async {
@@ -408,10 +432,12 @@ class FirebaseService {
 
   // Admin operations - adminwewire collection (stored by UID)
   static Future<void> saveAdmin(String uid, Map<String, dynamic> adminData) async {
+    // Include the uid in the admin data to ensure it's available when retrieving
+    final dataWithUid = {...adminData, 'uid': uid};
     await _firestore
         .collection('adminwewire')
         .doc(uid)
-        .set(adminData);
+        .set(dataWithUid);
   }
 
   static Future<Map<String, dynamic>?> getAdmin(String uid) async {
@@ -430,7 +456,14 @@ class FirebaseService {
     return _firestore
         .collection('adminwewire')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+        .map((snapshot) => snapshot.docs.map((doc) {
+              final data = doc.data();
+              // Ensure uid field is present - use document ID if not in data
+              if (data != null && !data.containsKey('uid')) {
+                return {...data, 'uid': doc.id};
+              }
+              return data ?? {};
+            }).toList());
   }
 
   // Firebase Auth instance

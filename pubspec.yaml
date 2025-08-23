@@ -24,7 +24,7 @@ dependencies:
   file_picker: ^8.0.0+1
   image_picker: ^1.0.5
   cached_network_image: ^3.3.1
-  flutter_local_notifications: ^16.3.0
+  flutter_local_notifications: ^19.4.0
   flutter_typeahead: ^5.0.1
   flutter_slidable: ^3.0.1
 

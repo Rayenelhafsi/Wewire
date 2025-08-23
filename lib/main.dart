@@ -6,13 +6,27 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/matricule_login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/chat/chat_screen.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
   runApp(const MainApp());
+  
+  // Initialize notification service after app starts (non-blocking)
+  _initializeNotifications();
+}
+
+// Initialize notifications after app starts to prevent blocking
+void _initializeNotifications() async {
+  try {
+    await NotificationService.initialize();
+  } catch (e) {
+    print('Failed to initialize notifications: $e');
+  }
 }
 
 class MainApp extends StatelessWidget {

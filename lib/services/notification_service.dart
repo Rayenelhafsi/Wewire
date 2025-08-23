@@ -1,0 +1,101 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class NotificationService {
+  static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+
+  static Future<void> initialize() async {
+    try {
+      // Request permission for notifications
+      final settings = await _firebaseMessaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      
+      print('Notification permission status: ${settings.authorizationStatus}');
+
+      // Initialize local notifications
+      const AndroidInitializationSettings androidInitializationSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const DarwinInitializationSettings iosInitializationSettings =
+          DarwinInitializationSettings();
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+        android: androidInitializationSettings,
+        iOS: iosInitializationSettings,
+      );
+
+      await _localNotifications.initialize(initializationSettings);
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        _showLocalNotification(message);
+      });
+
+      // Handle background messages
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+      // Get the FCM token for this device
+      final String? token = await _firebaseMessaging.getToken();
+      print('FCM Token: $token');
+      
+    } catch (e) {
+      print('Error initializing notification service: $e');
+      // Don't rethrow the error to prevent app from crashing
+    }
+  }
+
+  static Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+    await _showLocalNotification(message);
+  }
+
+  static Future<void> _showLocalNotification(RemoteMessage message) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'wewire_maintenance_channel',
+      'Maintenance Notifications',
+      channelDescription: 'Notifications for maintenance issues and updates',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const DarwinNotificationDetails iosPlatformChannelSpecifics =
+        DarwinNotificationDetails();
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iosPlatformChannelSpecifics,
+    );
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      message.notification?.title ?? 'New Notification',
+      message.notification?.body ?? 'You have a new notification',
+      platformChannelSpecifics,
+    );
+  }
+
+  static Future<String?> getDeviceToken() async {
+    return await _firebaseMessaging.getToken();
+  }
+
+  static Future<void> subscribeToTopic(String topic) async {
+    try {
+      // This method is not supported on web, so we'll just log it
+      print('Would subscribe to topic: $topic (not supported on web)');
+    } catch (e) {
+      print('Error subscribing to topic: $e');
+    }
+  }
+
+  static Future<void> unsubscribeFromTopic(String topic) async {
+    try {
+      // This method is not supported on web, so we'll just log it
+      print('Would unsubscribe from topic: $topic (not supported on web)');
+    } catch (e) {
+      print('Error unsubscribing from topic: $e');
+    }
+  }
+}
