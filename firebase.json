@@ -1,1 +1,41 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"wewire-18bc2","appId":"1:505805164580:android:973439ec88414cf1f548b1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"wewire-18bc2","configurations":{"android":"1:505805164580:android:973439ec88414cf1f548b1","ios":"1:505805164580:ios:3b2d0ee9be304ddcf548b1","macos":"1:505805164580:ios:3b2d0ee9be304ddcf548b1","web":"1:505805164580:web:330e793dd2337730f548b1","windows":"1:505805164580:web:86812bb30bd60cb5f548b1"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "wewire-18bc2",
+          "appId": "1:505805164580:android:973439ec88414cf1f548b1",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "wewire-18bc2",
+          "configurations": {
+            "android": "1:505805164580:android:973439ec88414cf1f548b1",
+            "ios": "1:505805164580:ios:3b2d0ee9be304ddcf548b1",
+            "macos": "1:505805164580:ios:3b2d0ee9be304ddcf548b1",
+            "web": "1:505805164580:web:330e793dd2337730f548b1",
+            "windows": "1:505805164580:web:86812bb30bd60cb5f548b1"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}

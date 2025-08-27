@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
+import 'package:googleapis_auth/auth_io.dart';
 import '../models/operator_model.dart';
 import '../models/technician_model.dart';
 import '../models/session_model.dart';
@@ -403,19 +407,173 @@ class FirebaseService {
   // Notification operations
   static Future<void> sendNotificationToTechnicians(
     String title,
-    String body,
-  ) async {
+    String body, {
+    Map<String, dynamic>? data,
+  }) async {
     try {
-      // For web, we can't use subscribeToTopic, so we'll just log the notification
-      // For mobile/desktop, we would use topic subscriptions
-      print('Notification for technicians: $title - $body');
+      // Get all technicians from Firestore
+      final techniciansSnapshot = await _firestore
+          .collection('technicians')
+          .get();
 
-      // Log that technicians would be notified about this issue
-      print('Technicians would receive a notification about: $title');
+      final technicians = techniciansSnapshot.docs
+          .map((doc) => Technician.fromJson(doc.data()))
+          .toList();
+
+      if (technicians.isEmpty) {
+        print('No technicians found to notify');
+        return;
+      }
+
+      print(
+        'Sending notification to ${technicians.length} technicians: $title - $body',
+      );
+
+      // For each technician, send a notification
+      for (final technician in technicians) {
+        // Check if the technician has a valid matricule
+        if (technician.matricule.isEmpty) {
+          print(
+            'Warning: Skipping technician with empty matricule: ${technician.name}',
+          );
+          continue;
+        }
+
+        await _sendNotificationToUser(
+          technician.matricule,
+          title,
+          body,
+          data: data,
+        );
+      }
     } catch (e) {
-      print('Error in notification system: $e');
-      // Fallback: just log the notification intent
-      print('Notification intent: $title - $body (for technicians)');
+      print('Error sending notifications to technicians: $e');
+      // Fallback: log the notification intent
+      print('Notification intent: $title - $body (for all technicians)');
+    }
+  }
+
+  // Send notification to a specific user by matricule
+  static Future<void> _sendNotificationToUser(
+    String matricule,
+    String title,
+    String body, {
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      // Look up the user's FCM token from the user_tokens collection
+      if (matricule.isEmpty) {
+        print('Error: Matricule is empty. Cannot send notification.');
+        return;
+      }
+      print('Retrieving FCM token for user: $matricule');
+      final tokenDoc = await _firestore
+          .collection('user_tokens')
+          .doc(matricule)
+          .get();
+
+      if (!tokenDoc.exists) {
+        print(
+          'No FCM token found for user $matricule. Cannot send notification.',
+        );
+        return;
+      }
+
+      final tokenData = tokenDoc.data();
+      final fcmToken = tokenData?['fcmToken'] as String?;
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print(
+          'Invalid FCM token for user $matricule. Cannot send notification.',
+        );
+        return;
+      }
+
+      // Send the notification via FCM
+      print('Sending FCM notification to user $matricule: $title - $body');
+
+      // Authenticate using the service account JSON file
+      final serviceAccountFile = File(
+        'C:/Users/elhaf/OneDrive/Desktop/Wewire/Wewire/wewire-18bc2-firebase-adminsdk-fbsvc-002ee0451c.json',
+      );
+      final serviceAccountContent = await serviceAccountFile.readAsString();
+      final serviceAccountJson = jsonDecode(serviceAccountContent);
+
+      final authClient = await clientViaServiceAccount(
+        ServiceAccountCredentials.fromJson(serviceAccountJson),
+        ['https://www.googleapis.com/auth/firebase.messaging'],
+      );
+      final accessToken = await authClient.credentials.accessToken;
+      final projectId = serviceAccountJson['project_id'] ?? 'wewire-18bc2';
+
+      // Send the notification via FCM HTTP v1 API
+      final fcmResponse = await http.post(
+        Uri.parse(
+          'https://fcm.googleapis.com/v1/projects/$projectId/messages:send',
+        ),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'message': {
+            'token': fcmToken,
+            'notification': {'title': title, 'body': body, 'sound': 'default'},
+            'data': data ?? {},
+          },
+        }),
+      );
+
+      if (fcmResponse.statusCode == 200) {
+        print('FCM notification sent successfully to $matricule');
+        print('Response: ${fcmResponse.body}');
+      } else {
+        print(
+          'Failed to send FCM notification: ${fcmResponse.statusCode} - ${fcmResponse.body}',
+        );
+      }
+    } catch (e) {
+      print('Error sending notification to user $matricule: $e');
+    }
+  }
+
+  // Store FCM token for a user (to be called when user logs in)
+  static Future<void> storeFCMToken(String matricule, String fcmToken) async {
+    try {
+      // Validate inputs to prevent null values being sent to Firestore
+      if (matricule.isEmpty || fcmToken.isEmpty) {
+        print(
+          'Warning: Attempted to store FCM token with empty matricule or token. Matricule: "$matricule", Token: "$fcmToken"',
+        );
+        return;
+      }
+
+      if (matricule == 'null' || fcmToken == 'null') {
+        print(
+          'Warning: Attempted to store FCM token with "null" string values. Matricule: "$matricule", Token: "$fcmToken"',
+        );
+        return;
+      }
+
+      await _firestore.collection('user_tokens').doc(matricule).set({
+        'fcmToken': fcmToken,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('FCM token stored for user $matricule');
+    } catch (e) {
+      print('Error storing FCM token for user $matricule: $e');
+      // Re-throw the error to provide better debugging context
+      throw Exception('Failed to store FCM token for user $matricule: $e');
+    }
+  }
+
+  // Remove FCM token when user logs out
+  static Future<void> removeFCMToken(String matricule) async {
+    try {
+      await _firestore.collection('user_tokens').doc(matricule).delete();
+      print('FCM token removed for user $matricule');
+    } catch (e) {
+      print('Error removing FCM token for user $matricule: $e');
     }
   }
 
@@ -423,11 +581,31 @@ class FirebaseService {
   static Future<void> saveIssue(Issue issue) async {
     await _firestore.collection('issues').doc(issue.id).set(issue.toJson());
 
-    // Send notification to technicians about the new issue
-    await sendNotificationToTechnicians(
-      'New Maintenance Issue',
-      'A new issue has been reported: ${issue.description}',
-    );
+    // Retrieve all technician tokens from Firestore
+    final techniciansSnapshot = await _firestore
+        .collection('user_tokens')
+        .get();
+    final technicianTokens = techniciansSnapshot.docs
+        .map((doc) => doc.data()['fcmToken'] as String)
+        .toList();
+
+    for (final token in technicianTokens) {
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/sendNotification'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': token,
+          'title': 'New Maintenance Issue',
+          'body': 'A new issue has been reported: ${issue.description}',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('Notification sent successfully to $token');
+      } else {
+        print('Failed to send notification: ${response.body}');
+      }
+    }
   }
 
   static Future<Issue?> getIssue(String id) async {

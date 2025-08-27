@@ -3,12 +3,33 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
+import 'session_service.dart';
+import 'firebase_service.dart';
 
 class NotificationService {
   static final FirebaseMessaging _firebaseMessaging =
       FirebaseMessaging.instance;
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
+
+  static Future<void> _storeFCMToken(String token) async {
+    final user = await SessionService.getCurrentUser();
+
+    // Validate token before storing
+    if (token.isEmpty || token == 'null') {
+      print('Warning: Attempted to store invalid FCM token: "$token"');
+      return;
+    }
+
+    if (user != null) {
+      await FirebaseService.storeFCMToken(user.id, token);
+      print('FCM token stored for user ${user.id}');
+    } else {
+      print(
+        'Warning: No user session found to store FCM token. Token: "$token"',
+      );
+    }
+  }
 
   static Future<void> initialize() async {
     try {
@@ -64,9 +85,20 @@ class NotificationService {
         _firebaseMessagingBackgroundHandler,
       );
 
-      // Get the FCM token for this device
+      // Get the FCM token for this device and store it
       final String? token = await _firebaseMessaging.getToken();
       print('FCM Token: $token');
+
+      // Store the token for notifications
+      if (token != null) {
+        await _storeFCMToken(token);
+      }
+
+      // Listen for token refresh
+      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+        print('FCM token refreshed: $newToken');
+        await _storeFCMToken(newToken);
+      });
     } catch (e) {
       print('Error initializing notification service: $e');
       // Don't rethrow the error to prevent app from crashing
@@ -149,5 +181,13 @@ class NotificationService {
     } catch (e) {
       print('Error requesting Android notification permission: $e');
     }
+  }
+
+  // Test function to send a notification
+  static Future<void> testSendNotification() async {
+    await FirebaseService.sendNotificationToTechnicians(
+      'Test Notification',
+      'This is a test notification to verify the notification system.',
+    );
   }
 }

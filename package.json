@@ -1,0 +1,29 @@
+{
+  "name": "wewire",
+  "version": "1.0.0",
+  "description": "A Windows desktop application for maintenance issue communication between operators, quality agents, and maintenance service personnel.",
+  "main": "sendNotification.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rayenelhafsi/Wewire.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Rayenelhafsi/Wewire/issues"
+  },
+  "homepage": "https://github.com/Rayenelhafsi/Wewire#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.4.0"
+  }
+}

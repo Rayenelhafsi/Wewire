@@ -1,10 +1,12 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart' as app_models;
+import 'firebase_service.dart';
 
 class SessionService {
   static const String _userKey = 'current_user';
   static const String _userTypeKey = 'user_type';
   static const String _isLoggedInKey = 'is_logged_in';
+  static const String _fcmTokenKey = 'fcm_token';
 
   static Future<void> saveUserSession(app_models.User user) async {
     final prefs = await SharedPreferences.getInstance();
@@ -59,5 +61,56 @@ class SessionService {
       );
     }
     return null;
+  }
+
+  // FCM Token management
+  static Future<void> storeFCMToken(String token, {String? matricule}) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Validate token before storing
+    if (token.isEmpty || token == 'null') {
+      print('Warning: Attempted to store invalid FCM token: "$token"');
+      return;
+    }
+
+    await prefs.setString(_fcmTokenKey, token);
+
+    // Also store the token in Firestore for the current user
+    final user = await getCurrentUser();
+    final userMatricule = matricule ?? user?.id;
+
+    // Validate userMatricule before calling FirebaseService
+    if (userMatricule == null ||
+        userMatricule.isEmpty ||
+        userMatricule == 'null') {
+      print(
+        'Warning: Cannot store FCM token - no valid user matricule found. User: $user, Matricule: $matricule',
+      );
+      return;
+    }
+
+    try {
+      await FirebaseService.storeFCMToken(userMatricule, token);
+    } catch (e) {
+      print('Error storing FCM token in Firestore: $e');
+      // Don't rethrow to prevent app crashes, but log the error
+    }
+  }
+
+  static Future<String?> getFCMToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fcmTokenKey);
+  }
+
+  static Future<void> removeFCMToken({String? matricule}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_fcmTokenKey);
+
+    // Also remove the token from Firestore for the current user
+    final user = await getCurrentUser();
+    final userMatricule = matricule ?? user?.id;
+    if (userMatricule != null) {
+      await FirebaseService.removeFCMToken(userMatricule);
+    }
   }
 }
