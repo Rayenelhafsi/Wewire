@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 class NotificationService {
   static final FirebaseMessaging _firebaseMessaging =
@@ -18,14 +20,26 @@ class NotificationService {
         print("Firebase is already initialized.");
       }
 
-      // Request permission for notifications
-      final settings = await _firebaseMessaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      print('Notification permission status: ${settings.authorizationStatus}');
+      // Request platform-specific notification permissions
+      if (!kIsWeb && Platform.isAndroid) {
+        print(
+          'Android device detected, requesting Android-specific notification permissions...',
+        );
+        await _requestAndroidNotificationPermission();
+      } else {
+        // For iOS and web, use Firebase's requestPermission
+        print(
+          'iOS/Web device detected, requesting standard notification permissions...',
+        );
+        final settings = await _firebaseMessaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        print(
+          'Notification permission status: ${settings.authorizationStatus}',
+        );
+      }
 
       // Initialize local notifications
       const AndroidInitializationSettings androidInitializationSettings =
@@ -113,6 +127,27 @@ class NotificationService {
       print('Would unsubscribe from topic: $topic (not supported on web)');
     } catch (e) {
       print('Error unsubscribing from topic: $e');
+    }
+  }
+
+  // Request Android notification permission (required for Android 13+)
+  static Future<void> _requestAndroidNotificationPermission() async {
+    try {
+      // Check if we're on Android
+      if (Platform.isAndroid) {
+        print('Requesting Android notification permission...');
+        // Request Firebase permissions for notifications
+        final settings = await _firebaseMessaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        print(
+          'Android notification permission status: ${settings.authorizationStatus}',
+        );
+      }
+    } catch (e) {
+      print('Error requesting Android notification permission: $e');
     }
   }
 }
