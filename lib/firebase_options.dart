@@ -50,16 +50,16 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBfhan6LH7r5TYWHn-7aOGhnPD5HH5GaXY',
-    appId: '1:505805164580:android:330e793dd2337730f548b1',
+    apiKey: 'AIzaSyDkshOHnxMV7P39qS_cSCSSMoARdapraeQ',
+    appId: '1:505805164580:android:973439ec88414cf1f548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBfhan6LH7r5TYWHn-7aOGhnPD5HH5GaXY',
-    appId: '1:505805164580:ios:330e793dd2337730f548b1',
+    apiKey: 'AIzaSyB3KsYwlPLYAJs7Q7t4snnrz0t-bIDSSl0',
+    appId: '1:505805164580:ios:3b2d0ee9be304ddcf548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
@@ -67,8 +67,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBfhan6LH7r5TYWHn-7aOGhnPD5HH5GaXY',
-    appId: '1:505805164580:ios:330e793dd2337730f548b1',
+    apiKey: 'AIzaSyB3KsYwlPLYAJs7Q7t4snnrz0t-bIDSSl0',
+    appId: '1:505805164580:ios:3b2d0ee9be304ddcf548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
@@ -77,10 +77,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyBfhan6LH7r5TYWHn-7aOGhnPD5HH5GaXY',
-    appId: '1:505805164580:web:330e793dd2337730f548b1',
+    appId: '1:505805164580:web:86812bb30bd60cb5f548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
     authDomain: 'wewire-18bc2.firebaseapp.com',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
   );
+
 }

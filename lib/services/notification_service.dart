@@ -1,19 +1,30 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
-  static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static final FirebaseMessaging _firebaseMessaging =
+      FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     try {
+      // Check if Firebase is already initialized
+      if (Firebase.apps.isEmpty) {
+        print("Initializing Firebase...");
+        await Firebase.initializeApp();
+      } else {
+        print("Firebase is already initialized.");
+      }
+
       // Request permission for notifications
       final settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
-      
+
       print('Notification permission status: ${settings.authorizationStatus}');
 
       // Initialize local notifications
@@ -23,9 +34,9 @@ class NotificationService {
           DarwinInitializationSettings();
       const InitializationSettings initializationSettings =
           InitializationSettings(
-        android: androidInitializationSettings,
-        iOS: iosInitializationSettings,
-      );
+            android: androidInitializationSettings,
+            iOS: iosInitializationSettings,
+          );
 
       await _localNotifications.initialize(initializationSettings);
 
@@ -35,31 +46,35 @@ class NotificationService {
       });
 
       // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
 
       // Get the FCM token for this device
       final String? token = await _firebaseMessaging.getToken();
       print('FCM Token: $token');
-      
     } catch (e) {
       print('Error initializing notification service: $e');
       // Don't rethrow the error to prevent app from crashing
     }
   }
 
-  static Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  static Future<void> _firebaseMessagingBackgroundHandler(
+    RemoteMessage message,
+  ) async {
     await _showLocalNotification(message);
   }
 
   static Future<void> _showLocalNotification(RemoteMessage message) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'wewire_maintenance_channel',
-      'Maintenance Notifications',
-      channelDescription: 'Notifications for maintenance issues and updates',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
+          'wewire_maintenance_channel',
+          'Maintenance Notifications',
+          channelDescription:
+              'Notifications for maintenance issues and updates',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
 
     const DarwinNotificationDetails iosPlatformChannelSpecifics =
         DarwinNotificationDetails();
@@ -69,12 +84,14 @@ class NotificationService {
       iOS: iosPlatformChannelSpecifics,
     );
 
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      message.notification?.title ?? 'New Notification',
-      message.notification?.body ?? 'You have a new notification',
-      platformChannelSpecifics,
-    );
+    if (message.notification != null) {
+      await _localNotifications.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        message.notification!.title ?? 'New Notification',
+        message.notification!.body ?? 'You have a new notification',
+        platformChannelSpecifics,
+      );
+    }
   }
 
   static Future<String?> getDeviceToken() async {

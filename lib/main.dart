@@ -10,12 +10,22 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
+  print("Starting Firebase initialization...");
+  if (Firebase.apps.isEmpty) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      print("Firebase initialized successfully.");
+    } catch (e) {
+      print("Error initializing Firebase: $e");
+    }
+  } else {
+    print("Firebase is already initialized.");
+  }
+
   runApp(const MainApp());
-  
+
   // Initialize notification service after app starts (non-blocking)
   _initializeNotifications();
 }
@@ -26,6 +36,7 @@ void _initializeNotifications() async {
     await NotificationService.initialize();
   } catch (e) {
     print('Failed to initialize notifications: $e');
+    // Optionally, handle the error further (e.g., show a dialog)
   }
 }
 
@@ -47,7 +58,10 @@ class MainApp extends StatelessWidget {
         '/matricule-login': (context) => const MatriculeLoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
         '/chat': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>?;
+
           if (args != null && args['isPrivateChat'] == true) {
             return ChatScreen(
               chatId: args['chatId'],
