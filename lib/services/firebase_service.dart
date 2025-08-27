@@ -37,8 +37,11 @@ class FirebaseService {
     return _firestore
         .collection('operators')
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Operator.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Operator.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   // Technician operations
@@ -65,8 +68,11 @@ class FirebaseService {
     return _firestore
         .collection('technicians')
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Technician.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Technician.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   // Session operations
@@ -89,8 +95,10 @@ class FirebaseService {
         .collection('sessions')
         .where('status', whereIn: ['open', 'inProgress'])
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Session.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Session.fromJson(doc.data())).toList(),
+        );
   }
 
   static Stream<List<Session>> getSessionHistory() {
@@ -98,8 +106,10 @@ class FirebaseService {
         .collection('sessions')
         .orderBy('startTime', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Session.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Session.fromJson(doc.data())).toList(),
+        );
   }
 
   // Machine operations
@@ -126,20 +136,28 @@ class FirebaseService {
     return _firestore
         .collection('machines')
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList(),
+        );
   }
 
-  static Stream<List<Machine>> getMachinesByAssignedOperator(String operatorId) {
+  static Stream<List<Machine>> getMachinesByAssignedOperator(
+    String operatorId,
+  ) {
     return _firestore
         .collection('machines')
         .where('assignedOperatorId', isEqualTo: operatorId)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList(),
+        );
   }
 
-  static Stream<List<Machine>> getMachinesByAssignedOperatorIds(List<String> machineIds) {
+  static Stream<List<Machine>> getMachinesByAssignedOperatorIds(
+    List<String> machineIds,
+  ) {
     if (machineIds.isEmpty) {
       return Stream.value([]);
     }
@@ -147,18 +165,17 @@ class FirebaseService {
         .collection('machines')
         .where(FieldPath.documentId, whereIn: machineIds)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Machine.fromJson(doc.data())).toList(),
+        );
   }
 
   // Chat operations
   static Future<void> sendMessage(String sessionId, String message) async {
-    await _firestore
-        .collection('sessions')
-        .doc(sessionId)
-        .update({
-          'chatMessages': FieldValue.arrayUnion([message])
-        });
+    await _firestore.collection('sessions').doc(sessionId).update({
+      'chatMessages': FieldValue.arrayUnion([message]),
+    });
   }
 
   static Stream<List<String>> getMessages(String sessionId) {
@@ -170,11 +187,17 @@ class FirebaseService {
   }
 
   // Private Chat operations
-  static Future<String> createPrivateChat(String participant1Id, String participant1Name, String participant1Role,
-                                         String participant2Id, String participant2Name, String participant2Role) async {
+  static Future<String> createPrivateChat(
+    String participant1Id,
+    String participant1Name,
+    String participant1Role,
+    String participant2Id,
+    String participant2Name,
+    String participant2Role,
+  ) async {
     final chatId = 'private_chat_${DateTime.now().millisecondsSinceEpoch}';
     final now = DateTime.now();
-    
+
     final privateChat = PrivateChat(
       id: chatId,
       participant1Id: participant1Id,
@@ -209,12 +232,17 @@ class FirebaseService {
         .where('isActive', isEqualTo: true)
         .where('participant1Id', isEqualTo: userId)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PrivateChat.fromJson(doc.data()))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PrivateChat.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
-  static Future<void> sendPrivateMessage(String chatId, ChatMessage message) async {
+  static Future<void> sendPrivateMessage(
+    String chatId,
+    ChatMessage message,
+  ) async {
     // Save the message
     await _firestore
         .collection('private_chats')
@@ -224,26 +252,25 @@ class FirebaseService {
         .set(message.toJson());
 
     // Update the chat with last message info
-    await _firestore
-        .collection('private_chats')
-        .doc(chatId)
-        .update({
-          'lastMessage': message.toJson(),
-          'lastMessageAt': FieldValue.serverTimestamp(),
-        });
+    await _firestore.collection('private_chats').doc(chatId).update({
+      'lastMessage': message.toJson(),
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    });
 
     // Update unread count for the other participant
-    final chatDoc = await _firestore.collection('private_chats').doc(chatId).get();
+    final chatDoc = await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .get();
     if (chatDoc.exists) {
       final chat = PrivateChat.fromJson(chatDoc.data()!);
       final isParticipant1 = chat.participant1Id == message.senderId;
-      
-      await _firestore
-          .collection('private_chats')
-          .doc(chatId)
-          .update({
-            isParticipant1 ? 'unreadCount2' : 'unreadCount1': FieldValue.increment(1),
-          });
+
+      await _firestore.collection('private_chats').doc(chatId).update({
+        isParticipant1 ? 'unreadCount2' : 'unreadCount1': FieldValue.increment(
+          1,
+        ),
+      });
     }
   }
 
@@ -254,24 +281,29 @@ class FirebaseService {
         .collection('messages')
         .orderBy('timestamp', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ChatMessage.fromJson(doc.data()))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ChatMessage.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
-  static Future<void> markPrivateMessagesAsRead(String chatId, String userId) async {
-    final chatDoc = await _firestore.collection('private_chats').doc(chatId).get();
+  static Future<void> markPrivateMessagesAsRead(
+    String chatId,
+    String userId,
+  ) async {
+    final chatDoc = await _firestore
+        .collection('private_chats')
+        .doc(chatId)
+        .get();
     if (chatDoc.exists) {
       final chat = PrivateChat.fromJson(chatDoc.data()!);
       final isParticipant1 = chat.participant1Id == userId;
-      
+
       // Reset unread count
-      await _firestore
-          .collection('private_chats')
-          .doc(chatId)
-          .update({
-            isParticipant1 ? 'unreadCount1' : 'unreadCount2': 0,
-          });
+      await _firestore.collection('private_chats').doc(chatId).update({
+        isParticipant1 ? 'unreadCount1' : 'unreadCount2': 0,
+      });
 
       // Mark all messages as read
       final messagesQuery = await _firestore
@@ -288,25 +320,22 @@ class FirebaseService {
   }
 
   static Future<void> linkChatToIssue(String chatId, String issueId) async {
-    await _firestore
-        .collection('private_chats')
-        .doc(chatId)
-        .update({
-          'linkedIssueId': issueId,
-        });
+    await _firestore.collection('private_chats').doc(chatId).update({
+      'linkedIssueId': issueId,
+    });
   }
 
   static Future<void> closePrivateChat(String chatId) async {
-    await _firestore
-        .collection('private_chats')
-        .doc(chatId)
-        .update({
-          'isActive': false,
-          'closedAt': FieldValue.serverTimestamp(),
-        });
+    await _firestore.collection('private_chats').doc(chatId).update({
+      'isActive': false,
+      'closedAt': FieldValue.serverTimestamp(),
+    });
   }
 
-  static Future<String?> findExistingPrivateChat(String userId1, String userId2) async {
+  static Future<String?> findExistingPrivateChat(
+    String userId1,
+    String userId2,
+  ) async {
     final query1 = await _firestore
         .collection('private_chats')
         .where('participant1Id', isEqualTo: userId1)
@@ -336,7 +365,7 @@ class FirebaseService {
   static Future<void> startWork(String matricule, String type) async {
     final now = DateTime.now();
     final docRef = _firestore.collection('work_tracking').doc();
-    
+
     await docRef.set({
       'matricule': matricule,
       'type': type,
@@ -372,15 +401,17 @@ class FirebaseService {
   }
 
   // Notification operations
-  static Future<void> sendNotificationToTechnicians(String title, String body) async {
+  static Future<void> sendNotificationToTechnicians(
+    String title,
+    String body,
+  ) async {
     try {
       // For web, we can't use subscribeToTopic, so we'll just log the notification
       // For mobile/desktop, we would use topic subscriptions
       print('Notification for technicians: $title - $body');
-      
+
       // Log that technicians would be notified about this issue
       print('Technicians would receive a notification about: $title');
-      
     } catch (e) {
       print('Error in notification system: $e');
       // Fallback: just log the notification intent
@@ -390,11 +421,8 @@ class FirebaseService {
 
   // Issue operations
   static Future<void> saveIssue(Issue issue) async {
-    await _firestore
-        .collection('issues')
-        .doc(issue.id)
-        .set(issue.toJson());
-    
+    await _firestore.collection('issues').doc(issue.id).set(issue.toJson());
+
     // Send notification to technicians about the new issue
     await sendNotificationToTechnicians(
       'New Maintenance Issue',
@@ -419,25 +447,24 @@ class FirebaseService {
         .collection('issues')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Issue.fromJson(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Issue.fromJson(doc.data())).toList(),
+        );
   }
 
   static Future<void> updateIssue(Issue issue) async {
-    await _firestore
-        .collection('issues')
-        .doc(issue.id)
-        .update(issue.toJson());
+    await _firestore.collection('issues').doc(issue.id).update(issue.toJson());
   }
 
   // Admin operations - adminwewire collection (stored by UID)
-  static Future<void> saveAdmin(String uid, Map<String, dynamic> adminData) async {
+  static Future<void> saveAdmin(
+    String uid,
+    Map<String, dynamic> adminData,
+  ) async {
     // Include the uid in the admin data to ensure it's available when retrieving
     final dataWithUid = {...adminData, 'uid': uid};
-    await _firestore
-        .collection('adminwewire')
-        .doc(uid)
-        .set(dataWithUid);
+    await _firestore.collection('adminwewire').doc(uid).set(dataWithUid);
   }
 
   static Future<Map<String, dynamic>?> getAdmin(String uid) async {
@@ -456,31 +483,39 @@ class FirebaseService {
     return _firestore
         .collection('adminwewire')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              // Ensure uid field is present - use document ID if not in data
-              if (data != null && !data.containsKey('uid')) {
-                return {...data, 'uid': doc.id};
-              }
-              return data ?? {};
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            // Ensure uid field is present - use document ID if not in data
+            if (data != null && !data.containsKey('uid')) {
+              return {...data, 'uid': doc.id};
+            }
+            return data ?? {};
+          }).toList(),
+        );
   }
 
   // Firebase Auth instance
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Admin authentication method using Firebase Authentication
-  static Future<app_models.User?> authenticateAdmin(String email, String password) async {
+  static Future<app_models.User?> authenticateAdmin(
+    String email,
+    String password,
+  ) async {
     try {
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       if (userCredential.user != null) {
         // Check if user is an admin in the adminwewire collection
-        final adminDoc = await _firestore.collection('adminwewire').doc(userCredential.user!.uid).get();
-        
+        final adminDoc = await _firestore
+            .collection('adminwewire')
+            .doc(userCredential.user!.uid)
+            .get();
+
         if (adminDoc.exists) {
           final adminData = adminDoc.data()!;
           return app_models.User(
@@ -509,7 +544,10 @@ class FirebaseService {
   // Operator authentication by matricule
   static Future<app_models.User?> authenticateOperator(String matricule) async {
     try {
-      final operatorDoc = await _firestore.collection('operators').doc(matricule).get();
+      final operatorDoc = await _firestore
+          .collection('operators')
+          .doc(matricule)
+          .get();
       if (operatorDoc.exists) {
         final operatorData = operatorDoc.data()!;
         return app_models.User(
@@ -528,16 +566,23 @@ class FirebaseService {
   }
 
   // Technician authentication by matricule
-  static Future<app_models.User?> authenticateTechnician(String matricule) async {
+  static Future<app_models.User?> authenticateTechnician(
+    String matricule,
+  ) async {
     try {
-      final technicianDoc = await _firestore.collection('technicians').doc(matricule).get();
+      final technicianDoc = await _firestore
+          .collection('technicians')
+          .doc(matricule)
+          .get();
       if (technicianDoc.exists) {
         final technicianData = technicianDoc.data()!;
         return app_models.User(
           id: technicianData['matricule'] ?? matricule,
           name: technicianData['name'] ?? 'Technician',
           email: technicianData['email'] ?? '',
-          role: app_models.UserRole.maintenanceService, // Assuming technicians are maintenance service
+          role: app_models
+              .UserRole
+              .maintenanceService, // Assuming technicians are maintenance service
           createdAt: DateTime.now(),
         );
       }
@@ -565,7 +610,10 @@ class FirebaseService {
   // Get technician by matricule
   static Future<Technician?> getTechnicianByMatricule(String matricule) async {
     try {
-      final doc = await _firestore.collection('technicians').doc(matricule).get();
+      final doc = await _firestore
+          .collection('technicians')
+          .doc(matricule)
+          .get();
       if (doc.exists) {
         return Technician.fromJson(doc.data()!);
       }
@@ -603,11 +651,32 @@ class FirebaseService {
   // Check if admin exists by UID
   static Future<bool> adminExists(String uid) async {
     try {
-      final adminDoc = await _firestore.collection('adminwewire').doc(uid).get();
+      final adminDoc = await _firestore
+          .collection('adminwewire')
+          .doc(uid)
+          .get();
       return adminDoc.exists;
     } catch (e) {
       print('Admin existence check error: $e');
       return false;
     }
+  }
+
+  // Get current authenticated user
+  static app_models.User? getCurrentUser() {
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      // Return a basic user object with the current Firebase Auth user info
+      return app_models.User(
+        id: currentUser.uid,
+        name: currentUser.displayName ?? 'User',
+        email: currentUser.email ?? '',
+        role: app_models
+            .UserRole
+            .admin, // Default to admin for Firebase Auth users
+        createdAt: DateTime.now(),
+      );
+    }
+    return null;
   }
 }

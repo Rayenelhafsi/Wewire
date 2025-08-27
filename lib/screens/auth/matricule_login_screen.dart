@@ -3,6 +3,7 @@ import '../../models/operator_model.dart';
 import '../../models/technician_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firebase_service.dart';
+import '../../services/session_service.dart';
 
 class MatriculeLoginScreen extends StatefulWidget {
   const MatriculeLoginScreen({super.key});
@@ -58,7 +59,7 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
 
   void _handleLogin() async {
     final matricule = _matriculeController.text.trim();
-    
+
     if (matricule.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your matricule')),
@@ -70,15 +71,13 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
       // Try to authenticate as operator first
       User? user = await FirebaseService.authenticateOperator(matricule);
-      
+
       if (user == null) {
         // If not operator, try to authenticate as technician
         user = await FirebaseService.authenticateTechnician(matricule);
@@ -88,12 +87,11 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
       Navigator.of(context).pop();
 
       if (user != null) {
+        // Save user session for operators/technicians
+        await SessionService.saveUserSession(user);
+
         // Authentication successful
-        Navigator.pushReplacementNamed(
-          context,
-          '/dashboard',
-          arguments: user,
-        );
+        Navigator.pushReplacementNamed(context, '/dashboard', arguments: user);
       } else {
         // Authentication failed
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +104,7 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
     } catch (e) {
       // Dismiss loading indicator
       Navigator.of(context).pop();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error during authentication: $e'),
@@ -119,11 +117,7 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_errorMessage != null) {
@@ -132,11 +126,7 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.error,
-                size: 64,
-                color: Colors.red,
-              ),
+              const Icon(Icons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
@@ -144,10 +134,7 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _loadUsers,
-                child: const Text('Retry'),
-              ),
+              ElevatedButton(onPressed: _loadUsers, child: const Text('Retry')),
             ],
           ),
         ),
@@ -164,18 +151,11 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.build,
-                  size: 80,
-                  color: Colors.blue,
-                ),
+                const Icon(Icons.build, size: 80, color: Colors.blue),
                 const SizedBox(height: 32),
                 const Text(
                   'Maintenance System',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
@@ -197,16 +177,21 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
                   height: 200,
                   child: ListView(
                     children: [
-                      ..._operators.map((op) => ListTile(
-                        title: Text(op.matricule),
-                        subtitle: Text('${op.name} - Operator'),
-                        onTap: () => _matriculeController.text = op.matricule,
-                      )),
-                      ..._technicians.map((tech) => ListTile(
-                        title: Text(tech.matricule),
-                        subtitle: Text('${tech.name} - Technician'),
-                        onTap: () => _matriculeController.text = tech.matricule,
-                      )),
+                      ..._operators.map(
+                        (op) => ListTile(
+                          title: Text(op.matricule),
+                          subtitle: Text('${op.name} - Operator'),
+                          onTap: () => _matriculeController.text = op.matricule,
+                        ),
+                      ),
+                      ..._technicians.map(
+                        (tech) => ListTile(
+                          title: Text(tech.matricule),
+                          subtitle: Text('${tech.name} - Technician'),
+                          onTap: () =>
+                              _matriculeController.text = tech.matricule,
+                        ),
+                      ),
                     ],
                   ),
                 ),
