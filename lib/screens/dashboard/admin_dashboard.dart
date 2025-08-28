@@ -52,21 +52,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
             icon: Icon(Icons.engineering),
             label: 'Technicians',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Operators',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.build),
-            label: 'Machines',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Issues',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Operators'),
+          BottomNavigationBarItem(icon: Icon(Icons.build), label: 'Machines'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Issues'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
     );
@@ -149,7 +141,11 @@ class _IssuesManagementState extends State<IssuesManagement> {
                               },
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete,
+                                size: 20,
+                                color: Colors.red,
+                              ),
                               onPressed: () {
                                 _deleteIssue(issue.id);
                               },
@@ -211,7 +207,10 @@ class _IssuesManagementState extends State<IssuesManagement> {
           mainAxisSize: MainAxisSize.min,
           children: IssueStatus.values.map((status) {
             return ListTile(
-              leading: Icon(_getStatusIcon(status), color: _getStatusColor(status)),
+              leading: Icon(
+                _getStatusIcon(status),
+                color: _getStatusColor(status),
+              ),
               title: Text(status.name),
               onTap: () {
                 Navigator.pop(context);
@@ -226,15 +225,17 @@ class _IssuesManagementState extends State<IssuesManagement> {
 
   void _updateIssueStatus(Issue issue, IssueStatus newStatus) {
     final updatedIssue = issue.copyWith(status: newStatus);
-    FirebaseService.updateIssue(updatedIssue).then((_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Issue status updated successfully')),
-      );
-    }).catchError((error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating issue: $error')),
-      );
-    });
+    FirebaseService.updateIssue(updatedIssue)
+        .then((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Issue status updated successfully')),
+          );
+        })
+        .catchError((error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error updating issue: $error')),
+          );
+        });
   }
 
   void _showAssignTechnicianDialog(Issue issue) {
@@ -308,7 +309,11 @@ class _IssuesManagementState extends State<IssuesManagement> {
                 await FirebaseService.updateIssue(updatedIssue);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Technician ${selectedTechnician!.name} assigned successfully')),
+                  SnackBar(
+                    content: Text(
+                      'Technician ${selectedTechnician!.name} assigned successfully',
+                    ),
+                  ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -367,7 +372,7 @@ class TechniciansManagement extends StatefulWidget {
 
 class _TechniciansManagementState extends State<TechniciansManagement> {
   late final app_models.User currentUser;
-  
+
   @override
   void initState() {
     super.initState();
@@ -390,9 +395,7 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const TechnicianForm(),
-                ),
+                MaterialPageRoute(builder: (context) => const TechnicianForm()),
               );
             },
             child: const Text('Add New Technician'),
@@ -421,10 +424,15 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
                   itemBuilder: (context, index) {
                     final technician = technicians[index];
                     return StreamBuilder<List<PrivateChat>>(
-                      stream: FirebaseService.getUserPrivateChats(currentUser.id),
+                      stream: FirebaseService.getUserPrivateChats(
+                        currentUser.id,
+                      ),
                       builder: (context, chatSnapshot) {
-                        final unreadCount = _getUnreadCountForTechnician(chatSnapshot.data ?? [], technician.matricule);
-                        
+                        final unreadCount = _getUnreadCountForTechnician(
+                          chatSnapshot.data ?? [],
+                          technician.matricule,
+                        );
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
@@ -458,14 +466,23 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
                               ],
                             ),
                             title: Text(technician.name),
-                            subtitle: Text('Matricule: ${technician.matricule}'),
+                            subtitle: Text(
+                              'Matricule: ${technician.matricule}',
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.chat, size: 20, color: Colors.blue),
+                                  icon: const Icon(
+                                    Icons.chat,
+                                    size: 20,
+                                    color: Colors.blue,
+                                  ),
                                   onPressed: () {
-                                    _startChatWithTechnician(context, technician);
+                                    _startChatWithTechnician(
+                                      context,
+                                      technician,
+                                    );
                                   },
                                 ),
                                 IconButton(
@@ -474,13 +491,19 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => TechnicianForm(technician: technician),
+                                        builder: (context) => TechnicianForm(
+                                          technician: technician,
+                                        ),
                                       ),
                                     );
                                   },
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    size: 20,
+                                    color: Colors.red,
+                                  ),
                                   onPressed: () {
                                     _deleteTechnician(technician.matricule);
                                   },
@@ -501,16 +524,23 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
     );
   }
 
-  int _getUnreadCountForTechnician(List<PrivateChat> chats, String technicianId) {
+  int _getUnreadCountForTechnician(
+    List<PrivateChat> chats,
+    String technicianId,
+  ) {
     for (final chat in chats) {
-      if (chat.participant2Id == technicianId || chat.participant1Id == technicianId) {
+      if (chat.participant2Id == technicianId ||
+          chat.participant1Id == technicianId) {
         return chat.getUnreadCount(currentUser.id);
       }
     }
     return 0;
   }
 
-  Future<void> _startChatWithTechnician(BuildContext context, Technician technician) async {
+  Future<void> _startChatWithTechnician(
+    BuildContext context,
+    Technician technician,
+  ) async {
     try {
       // Check if chat already exists
       final existingChatId = await FirebaseService.findExistingPrivateChat(
@@ -545,9 +575,9 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
         },
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error starting chat: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error starting chat: $e')));
     }
   }
 
@@ -568,7 +598,9 @@ class _TechniciansManagementState extends State<TechniciansManagement> {
               try {
                 await FirebaseService.deleteTechnician(matricule);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Technician deleted successfully')),
+                  const SnackBar(
+                    content: Text('Technician deleted successfully'),
+                  ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -608,9 +640,7 @@ class _OperatorsManagementState extends State<OperatorsManagement> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const OperatorForm(),
-                ),
+                MaterialPageRoute(builder: (context) => const OperatorForm()),
               );
             },
             child: const Text('Add New Operator'),
@@ -653,13 +683,18 @@ class _OperatorsManagementState extends State<OperatorsManagement> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => OperatorForm(operator: operator),
+                                    builder: (context) =>
+                                        OperatorForm(operator: operator),
                                   ),
                                 );
                               },
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete,
+                                size: 20,
+                                color: Colors.red,
+                              ),
                               onPressed: () {
                                 _deleteOperator(operator.matricule);
                               },
@@ -695,7 +730,9 @@ class _OperatorsManagementState extends State<OperatorsManagement> {
               try {
                 await FirebaseService.deleteOperator(matricule);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Operator deleted successfully')),
+                  const SnackBar(
+                    content: Text('Operator deleted successfully'),
+                  ),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -735,9 +772,7 @@ class _MachinesManagementState extends State<MachinesManagement> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const MachineForm(),
-                ),
+                MaterialPageRoute(builder: (context) => const MachineForm()),
               );
             },
             child: const Text('Add New Machine'),
@@ -787,13 +822,18 @@ class _MachinesManagementState extends State<MachinesManagement> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => MachineForm(machine: machine),
+                                    builder: (context) =>
+                                        MachineForm(machine: machine),
                                   ),
                                 );
                               },
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete,
+                                size: 20,
+                                color: Colors.red,
+                              ),
                               onPressed: () {
                                 _deleteMachine(machine.id);
                               },

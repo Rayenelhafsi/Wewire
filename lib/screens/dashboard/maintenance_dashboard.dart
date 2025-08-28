@@ -16,6 +16,9 @@ class MaintenanceDashboard extends StatefulWidget {
 }
 
 class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
+  final Map<String, String?> _selectedInterventionTypes =
+      {}; // Map to store selected intervention type for each issue
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -59,10 +62,13 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
         }
 
         final issues = snapshot.data ?? [];
-        final myIssues = issues.where((issue) => 
-          issue.assignedMaintenanceId == widget.user.id && 
-          issue.status != IssueStatus.resolved
-        ).toList();
+        final myIssues = issues
+            .where(
+              (issue) =>
+                  issue.assignedMaintenanceId == widget.user.id &&
+                  issue.status != IssueStatus.resolved,
+            )
+            .toList();
 
         if (myIssues.isEmpty) {
           return const Center(child: Text('No issues assigned to you'));
@@ -86,9 +92,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
         }
 
         final issues = snapshot.data ?? [];
-        final activeIssues = issues.where((issue) => 
-          issue.status != IssueStatus.resolved
-        ).toList();
+        final activeIssues = issues
+            .where((issue) => issue.status != IssueStatus.resolved)
+            .toList();
 
         if (activeIssues.isEmpty) {
           return const Center(child: Text('No active issues'));
@@ -169,7 +175,7 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
           stream: FirebaseService.getUserPrivateChats(widget.user.id),
           builder: (context, chatSnapshot) {
             final chats = chatSnapshot.data ?? [];
-            
+
             return ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: admins.length,
@@ -177,10 +183,10 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                 final admin = admins[index];
                 final adminId = admin['uid'] ?? '';
                 final adminName = admin['name'] ?? 'Admin';
-                
+
                 // Find existing chat with this admin
                 final unreadCount = _getUnreadCountForAdmin(chats, adminId);
-                
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
@@ -214,10 +220,13 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                       ],
                     ),
                     title: Text(adminName),
-                    subtitle: Text('Admin ID: ${adminId.isNotEmpty && adminId.length >= 8 ? adminId.substring(0, 8) + '...' : adminId}'),
+                    subtitle: Text(
+                      'Admin ID: ${adminId.isNotEmpty && adminId.length >= 8 ? adminId.substring(0, 8) + '...' : adminId}',
+                    ),
                     trailing: IconButton(
                       icon: const Icon(Icons.chat, color: Colors.blue),
-                      onPressed: () => _startChatWithAdmin(context, adminId, adminName),
+                      onPressed: () =>
+                          _startChatWithAdmin(context, adminId, adminName),
                     ),
                   ),
                 );
@@ -242,9 +251,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
         }
 
         final issues = snapshot.data ?? [];
-        final resolvedIssues = issues.where((issue) => 
-          issue.status == IssueStatus.resolved
-        ).toList();
+        final resolvedIssues = issues
+            .where((issue) => issue.status == IssueStatus.resolved)
+            .toList();
 
         if (resolvedIssues.isEmpty) {
           return const Center(child: Text('No resolved issues'));
@@ -255,7 +264,10 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
     );
   }
 
-  Widget _buildIssuesList(List<Issue> issues, {required bool showAssignButton}) {
+  Widget _buildIssuesList(
+    List<Issue> issues, {
+    required bool showAssignButton,
+  }) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: issues.length,
@@ -290,6 +302,36 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                       const SizedBox(height: 8),
                       Text('Assigned to: ${issue.assignedMaintenanceId}'),
                     ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          'Intervention Type: ${issue.interventionType ?? "Not specified"}',
+                        ),
+                        const SizedBox(width: 8),
+                        DropdownButton<String>(
+                          value:
+                              _selectedInterventionTypes[issue.id] ??
+                              issue.interventionType,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Remote',
+                              child: Text('Remote'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'In Person',
+                              child: Text('In Person'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedInterventionTypes[issue.id] = value;
+                            });
+                            _assignIssue(issue); // Call to update Firebase
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -323,9 +365,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
           child: const Text('Resolve'),
         );
       }
-    } else if (showAssignButton && 
-               (issue.status == IssueStatus.reported || 
-                issue.status == IssueStatus.acknowledged)) {
+    } else if (showAssignButton &&
+        (issue.status == IssueStatus.reported ||
+            issue.status == IssueStatus.acknowledged)) {
       return ElevatedButton(
         onPressed: () => _assignIssue(issue),
         child: const Text('Assign to Me'),
@@ -340,17 +382,20 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       final updatedIssue = issue.copyWith(
         status: IssueStatus.inProgress,
         assignedMaintenanceId: widget.user.id,
+        interventionType:
+            _selectedInterventionTypes[issue.id] ??
+            issue.interventionType, // Include intervention type
       );
       await FirebaseService.updateIssue(updatedIssue);
       if (!mounted) return;
-      ScaffoldMessenger.of(currentContext).showSnackBar(
-        const SnackBar(content: Text('Issue assigned to you')),
-      );
+      ScaffoldMessenger.of(
+        currentContext,
+      ).showSnackBar(const SnackBar(content: Text('Issue assigned to you')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(currentContext).showSnackBar(
-        SnackBar(content: Text('Error assigning issue: $e')),
-      );
+      ScaffoldMessenger.of(
+        currentContext,
+      ).showSnackBar(SnackBar(content: Text('Error assigning issue: $e')));
     }
   }
 
@@ -368,9 +413,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(currentContext).showSnackBar(
-        SnackBar(content: Text('Error resolving issue: $e')),
-      );
+      ScaffoldMessenger.of(
+        currentContext,
+      ).showSnackBar(SnackBar(content: Text('Error resolving issue: $e')));
     }
   }
 
@@ -387,17 +432,21 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
           assignedMachines: const [],
         ),
       );
-      
+
       await _startChatWithOperator(context, operator, issueId: issue.id);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error starting chat: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error starting chat: $e')));
     }
   }
 
-  Future<void> _startChatWithOperator(BuildContext context, Operator operator, {String? issueId}) async {
+  Future<void> _startChatWithOperator(
+    BuildContext context,
+    Operator operator, {
+    String? issueId,
+  }) async {
     try {
       // Check if chat already exists
       final existingChatId = await FirebaseService.findExistingPrivateChat(
@@ -440,9 +489,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error starting chat: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error starting chat: $e')));
     }
   }
 
@@ -455,7 +504,11 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
     return 0;
   }
 
-  Future<void> _startChatWithAdmin(BuildContext context, String adminId, String adminName) async {
+  Future<void> _startChatWithAdmin(
+    BuildContext context,
+    String adminId,
+    String adminName,
+  ) async {
     try {
       // Check if chat already exists
       final existingChatId = await FirebaseService.findExistingPrivateChat(
@@ -493,9 +546,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error starting chat: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error starting chat: $e')));
     }
   }
 
@@ -512,7 +565,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
             const SizedBox(height: 8),
             Text('Resolved: ${_formatDate(issue.resolvedAt!)}'),
             const SizedBox(height: 8),
-            const Text('Resolution: Issue resolved through maintenance service'),
+            const Text(
+              'Resolution: Issue resolved through maintenance service',
+            ),
           ],
         ),
         actions: [

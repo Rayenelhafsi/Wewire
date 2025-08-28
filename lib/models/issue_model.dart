@@ -10,6 +10,8 @@ class Issue {
   final DateTime? resolvedAt;
   final String? assignedMaintenanceId;
   final List<String> tags;
+  final String?
+  interventionType; // New field for intervention type (remote or in-person)
 
   Issue({
     required this.id,
@@ -23,35 +25,44 @@ class Issue {
     this.resolvedAt,
     this.assignedMaintenanceId,
     this.tags = const [],
+    this.interventionType, // New parameter
   });
 
   factory Issue.fromJson(Map<String, dynamic> json) => Issue(
-        id: json['id'] ?? '',
-        machineId: json['machineId'] ?? '',
-        reporterId: json['reporterId'] ?? '',
-        title: json['title'] ?? '',
-        description: json['description'] ?? '',
-        priority: IssuePriority.values.firstWhere((e) => e.toString() == 'IssuePriority.${json['priority']}'),
-        status: IssueStatus.values.firstWhere((e) => e.toString() == 'IssueStatus.${json['status']}'),
-        createdAt: DateTime.parse(json['createdAt']),
-        resolvedAt: json['resolvedAt'] != null ? DateTime.parse(json['resolvedAt']) : null,
-        assignedMaintenanceId: json['assignedMaintenanceId'],
-        tags: List<String>.from(json['tags'] ?? []),
-      );
+    id: json['id'] ?? '',
+    machineId: json['machineId'] ?? '',
+    reporterId: json['reporterId'] ?? '',
+    title: json['title'] ?? '',
+    description: json['description'] ?? '',
+    priority: IssuePriority.values.firstWhere(
+      (e) => e.toString() == 'IssuePriority.${json['priority']}',
+    ),
+    status: IssueStatus.values.firstWhere(
+      (e) => e.toString() == 'IssueStatus.${json['status']}',
+    ),
+    createdAt: DateTime.parse(json['createdAt']),
+    resolvedAt: json['resolvedAt'] != null
+        ? DateTime.parse(json['resolvedAt'])
+        : null,
+    assignedMaintenanceId: json['assignedMaintenanceId'],
+    tags: List<String>.from(json['tags'] ?? []),
+    interventionType: json['interventionType'], // New field
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'machineId': machineId,
-        'reporterId': reporterId,
-        'title': title,
-        'description': description,
-        'priority': priority.name,
-        'status': status.name,
-        'createdAt': createdAt.toIso8601String(),
-        'resolvedAt': resolvedAt?.toIso8601String(),
-        'assignedMaintenanceId': assignedMaintenanceId,
-        'tags': tags,
-      };
+    'id': id,
+    'machineId': machineId,
+    'reporterId': reporterId,
+    'title': title,
+    'description': description,
+    'priority': priority.name,
+    'status': status.name,
+    'createdAt': createdAt.toIso8601String(),
+    'resolvedAt': resolvedAt?.toIso8601String(),
+    'assignedMaintenanceId': assignedMaintenanceId,
+    'tags': tags,
+    'interventionType': interventionType, // New field
+  };
 
   Issue copyWith({
     String? id,
@@ -65,6 +76,7 @@ class Issue {
     DateTime? resolvedAt,
     String? assignedMaintenanceId,
     List<String>? tags,
+    String? interventionType, // New parameter
   }) {
     return Issue(
       id: id ?? this.id,
@@ -76,23 +88,15 @@ class Issue {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
-      assignedMaintenanceId: assignedMaintenanceId ?? this.assignedMaintenanceId,
+      assignedMaintenanceId:
+          assignedMaintenanceId ?? this.assignedMaintenanceId,
       tags: tags ?? this.tags,
+      interventionType:
+          interventionType ?? this.interventionType, // New parameter
     );
   }
 }
 
-enum IssuePriority {
-  low,
-  medium,
-  high,
-  critical,
-}
+enum IssuePriority { low, medium, high, critical }
 
-enum IssueStatus {
-  reported,
-  acknowledged,
-  inProgress,
-  resolved,
-  closed,
-}
+enum IssueStatus { reported, acknowledged, inProgress, resolved, closed }
