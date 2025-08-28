@@ -591,7 +591,9 @@ class FirebaseService {
 
     for (final token in technicianTokens) {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/sendNotification'),
+        Uri.parse(
+          'https://wewire-34yt-o5d60i9tn-rayen-elhafsis-projects.vercel.app/api/sendNotification',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'token': token,
