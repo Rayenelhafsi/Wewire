@@ -2,13 +2,11 @@
 const admin = require("firebase-admin");
 
 // Load service account key
-const serviceAccount = require("./serviceAccountKey.json");
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
-// Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
 // Function to send push notification
 async function sendPushNotification(token, title, body) {
   const message = {
