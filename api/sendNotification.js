@@ -1,5 +1,7 @@
-
 const admin = require("firebase-admin");
+const express = require('express');
+const app = express();
+app.use(express.json()); // Middleware to parse JSON bodies
 
 // Load service account key
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
@@ -7,6 +9,7 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
 // Function to send push notification
 async function sendPushNotification(token, title, body) {
   const message = {
@@ -27,17 +30,24 @@ async function sendPushNotification(token, title, body) {
   }
 }
 
-// Get command line arguments
-const args = process.argv.slice(2);
+// API endpoint
+app.post('/api/sendNotification', (req, res) => {
+  const { token, title, body } = req.body;
 
-if (args.length < 3) {
-  console.error("❌ Usage: node sendNotification.js <token> <title> <body>");
-  process.exit(1);
-}
+  if (!token || !title || !body) {
+    return res.status(400).send("❌ Usage: Provide token, title, and body in the request body.");
+  }
 
-const token = args[0];
-const title = args[1];
-const body = args[2];
+  sendPushNotification(token, title, body)
+    .then(() => res.status(200).send("✅ Notification sent successfully."))
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send("❌ Error sending notification.");
+    });
+});
 
-// Send the notification
-sendPushNotification(token, title, body);
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
