@@ -558,6 +558,16 @@ class FirebaseService {
     }
   }
 
+  // Public method to send notification to a specific operator
+  static Future<void> sendNotificationToOperator(
+    String operatorMatricule,
+    String title,
+    String body, {
+    Map<String, dynamic>? data,
+  }) async {
+    await _sendNotificationToUser(operatorMatricule, title, body, data: data);
+  }
+
   // Store FCM token for a user (to be called when user logs in)
   static Future<void> storeFCMToken(String matricule, String fcmToken) async {
     try {

@@ -10,6 +10,8 @@ import '../../screens/forms/technician_form.dart';
 import '../../screens/forms/operator_form.dart';
 import '../../screens/forms/machine_form.dart';
 import '../../screens/chat/chat_screen.dart';
+import '../../screens/dashboard/work_requests_management.dart';
+import '../../screens/dashboard/work_history_management.dart';
 
 class AdminDashboard extends StatefulWidget {
   final app_models.User user;
@@ -33,6 +35,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       OperatorsManagement(),
       MachinesManagement(),
       IssuesManagement(),
+      WorkRequestsManagement(), // New section for work requests
+      WorkHistoryManagement(), // New section for work history
     ];
   }
 
@@ -55,6 +59,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Operators'),
           BottomNavigationBarItem(icon: Icon(Icons.build), label: 'Machines'),
           BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Issues'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.work),
+            label: 'Work Requests',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Work History',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
