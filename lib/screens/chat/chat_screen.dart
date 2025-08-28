@@ -33,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     if (widget.isPrivateChat) {
       _messagesStream = FirebaseService.getPrivateChatMessages(widget.chatId);
     } else {
@@ -72,15 +72,13 @@ class _ChatScreenState extends State<ChatScreen> {
       // await FirebaseService.sendMessage(widget.issue!.id, _messageController.text);
     }
 
-    _messageController.clear();
+    FocusScope.of(context).requestFocus(FocusNode()); // Refocus the input field
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
+      appBar: AppBar(title: Text(widget.title)),
       body: Column(
         children: [
           Expanded(
@@ -109,9 +107,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe = message.senderId == _currentUser.id;
-                    
+
                     return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isMe
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.all(12),
@@ -162,7 +162,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         vertical: 8,
                       ),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
+                    onSubmitted: (_) => {
+                      _sendMessage(),
+                      _messageController.clear(),
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),

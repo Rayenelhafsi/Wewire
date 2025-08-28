@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // Import intl package
 import '../../models/user_model.dart' as app_models;
 import '../../models/machine_model.dart';
 import '../../models/issue_model.dart';
@@ -280,7 +281,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                               : chat.participant1Name,
                         ),
                         subtitle: Text(
-                          'Last message at: ${chat.lastMessageAt}',
+                          'Last message at: ${DateFormat.yMMMd().add_jm().format(chat.lastMessageAt.toDate())}',
                         ),
                         trailing: ElevatedButton(
                           onPressed: () {
