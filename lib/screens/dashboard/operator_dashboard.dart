@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart' as app_models;
 import '../../models/machine_model.dart';
 import '../../models/issue_model.dart';
+import '../../models/private_chat_model.dart';
 import '../../services/firebase_service.dart';
+import '../../screens/chat/chat_screen.dart';
 
 class OperatorDashboard extends StatefulWidget {
   final app_models.User user;
@@ -95,7 +97,9 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
 
               if (selectedPriority == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please select a priority level')),
+                  const SnackBar(
+                    content: Text('Please select a priority level'),
+                  ),
                 );
                 return;
               }
@@ -110,13 +114,13 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                 status: IssueStatus.reported,
                 createdAt: DateTime.now(),
               );
-              
+
               // Save to Firestore
               try {
                 await FirebaseService.saveIssue(newIssue);
-                
+
                 Navigator.pop(context);
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Issue reported successfully')),
                 );
@@ -147,18 +151,16 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
           const SizedBox(height: 16),
           Expanded(
             child: StreamBuilder<List<Machine>>(
-              stream: FirebaseService.getMachinesByAssignedOperator(widget.user.id),
+              stream: FirebaseService.getMachinesByAssignedOperator(
+                widget.user.id,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 final machines = snapshot.data ?? [];
@@ -181,7 +183,9 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                           child: const Icon(Icons.build, color: Colors.white),
                         ),
                         title: Text(machine.name),
-                        subtitle: Text('${machine.model} - ${machine.location}'),
+                        subtitle: Text(
+                          '${machine.model} - ${machine.location}',
+                        ),
                         trailing: ElevatedButton(
                           onPressed: () => _reportIssue(machine),
                           child: const Text('Report Issue'),
@@ -204,15 +208,11 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
               stream: FirebaseService.getAllIssues(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 final allIssues = snapshot.data ?? [];
@@ -221,9 +221,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                     .toList();
 
                 if (reportedIssues.isEmpty) {
-                  return const Center(
-                    child: Text('No issues reported yet'),
-                  );
+                  return const Center(child: Text('No issues reported yet'));
                 }
 
                 return ListView.builder(
@@ -237,6 +235,71 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                         trailing: Chip(
                           label: Text(issue.priority.name.toUpperCase()),
                           backgroundColor: _getPriorityColor(issue.priority),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'My Chats',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<List<PrivateChat>>(
+              stream: FirebaseService.getUserPrivateChats(widget.user.id),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final chats = snapshot.data ?? [];
+
+                if (chats.isEmpty) {
+                  return const Center(child: Text('No chats available'));
+                }
+
+                return ListView.builder(
+                  itemCount: chats.length,
+                  itemBuilder: (context, index) {
+                    final chat = chats[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text(
+                          chat.participant1Name == widget.user.name
+                              ? chat.participant2Name
+                              : chat.participant1Name,
+                        ),
+                        subtitle: Text(
+                          'Last message at: ${chat.lastMessageAt}',
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  chatId: chat.id,
+                                  isPrivateChat: true,
+                                  title:
+                                      chat.participant1Name == widget.user.name
+                                      ? chat.participant2Name
+                                      : chat.participant1Name,
+                                  user: widget.user,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Open Chat'),
                         ),
                       ),
                     );

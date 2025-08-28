@@ -211,7 +211,7 @@ class FirebaseService {
       participant1Role: participant1Role,
       participant2Role: participant2Role,
       createdAt: now,
-      lastMessageAt: now,
+      lastMessageAt: Timestamp.fromDate(now),
     );
 
     await _firestore
@@ -231,16 +231,37 @@ class FirebaseService {
   }
 
   static Stream<List<PrivateChat>> getUserPrivateChats(String userId) {
+    // Since Firestore doesn't support OR queries natively, we'll need to combine two streams
+    // This is a simplified version that only checks participant1Id
+    // In a production app, you'd want to implement a more robust solution
     return _firestore
         .collection('private_chats')
         .where('isActive', isEqualTo: true)
         .where('participant1Id', isEqualTo: userId)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .asyncMap((snapshot) async {
+          final chats = snapshot.docs
               .map((doc) => PrivateChat.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          final participant2Chats = await _firestore
+              .collection('private_chats')
+              .where('isActive', isEqualTo: true)
+              .where('participant2Id', isEqualTo: userId)
+              .get();
+          chats.addAll(
+            participant2Chats.docs
+                .map((doc) => PrivateChat.fromJson(doc.data()))
+                .toList(),
+          );
+          return chats;
+        });
+  }
+
+  // Alternative method to get all chats for a user (both as participant1 and participant2)
+  static Stream<List<PrivateChat>> getAllUserPrivateChats(String userId) {
+    // This would require a more complex implementation with multiple queries
+    // For now, we'll use the existing method
+    return getUserPrivateChats(userId);
   }
 
   static Future<void> sendPrivateMessage(
