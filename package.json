@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/Rayenelhafsi/Wewire#readme",
   "engines": {
-    "node": "22.x"
+    "node": "18.x"
   },
   "dependencies": {
     "cors": "^2.8.5",
