@@ -608,6 +608,11 @@ class FirebaseService {
     }
   }
 
+  // Session operations
+  static Future<void> deleteSession(String sessionId) async {
+    await _firestore.collection('sessions').doc(sessionId).delete();
+  }
+
   // Issue operations
   static Future<void> saveIssue(Issue issue) async {
     await _firestore.collection('issues').doc(issue.id).set(issue.toJson());
