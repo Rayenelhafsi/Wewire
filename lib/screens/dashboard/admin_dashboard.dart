@@ -12,6 +12,7 @@ import '../../screens/forms/machine_form.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../screens/dashboard/work_requests_management.dart';
 import '../../screens/dashboard/work_history_management.dart';
+import '../../screens/dashboard/analytics_dashboard.dart';
 
 class AdminDashboard extends StatefulWidget {
   final app_models.User user;
@@ -37,6 +38,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       IssuesManagement(),
       WorkRequestsManagement(), // New section for work requests
       WorkHistoryManagement(), // New section for work history
+      AnalyticsDashboard(), // Analytics dashboard
     ];
   }
 
@@ -66,6 +68,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
             label: 'Work History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: 'Analytics',
           ),
         ],
         currentIndex: _selectedIndex,

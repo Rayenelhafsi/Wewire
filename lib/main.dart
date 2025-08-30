@@ -10,6 +10,7 @@ import 'screens/chat/chat_screen.dart';
 import 'services/notification_service.dart';
 import 'services/firebase_service.dart';
 import 'services/session_service.dart';
+import 'utils/test_firestore_write.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

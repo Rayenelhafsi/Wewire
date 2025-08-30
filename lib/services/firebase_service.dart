@@ -13,6 +13,7 @@ import '../models/issue_model.dart';
 import '../models/user_model.dart' as app_models;
 import '../models/private_chat_model.dart';
 import '../models/chat_message_model.dart';
+import '../models/machine_analytics_model.dart';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -892,5 +893,268 @@ class FirebaseService {
       );
     }
     return null;
+  }
+
+  // Machine Analytics operations
+  static Future<void> saveMachineAnalytics(MachineAnalytics analytics) async {
+    print('saveMachineAnalytics called for machineId: ${analytics.machineId}');
+    print('Data to save: ${analytics.toJson()}');
+    await _firestore
+        .collection('machines')
+        .doc(analytics.machineId)
+        .collection('analytics')
+        .doc('overview')
+        .set(analytics.toJson());
+  }
+
+  static Future<MachineAnalytics?> getMachineAnalytics(String machineId) async {
+    final doc = await _firestore
+        .collection('machines')
+        .doc(machineId)
+        .collection('analytics')
+        .doc('overview')
+        .get();
+
+    if (doc.exists) {
+      return MachineAnalytics.fromJson(doc.data()!);
+    }
+    return null;
+  }
+
+  static Stream<MachineAnalytics?> streamMachineAnalytics(String machineId) {
+    return _firestore
+        .collection('machines')
+        .doc(machineId)
+        .collection('analytics')
+        .doc('overview')
+        .snapshots()
+        .map(
+          (doc) => doc.exists ? MachineAnalytics.fromJson(doc.data()!) : null,
+        );
+  }
+
+  static Future<void> updateMachineAnalytics(
+    String machineId,
+    Map<String, dynamic> updates,
+  ) async {
+    try {
+      print(
+        'updateMachineAnalytics called for machineId: $machineId with updates: $updates',
+      );
+      await _firestore
+          .collection('machines')
+          .doc(machineId)
+          .collection('analytics')
+          .doc('overview')
+          .set(updates, SetOptions(merge: true));
+      print('updateMachineAnalytics succeeded for machineId: $machineId');
+    } catch (e) {
+      print('Error in updateMachineAnalytics for machineId: $machineId - $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> updateDailyStoppedTime(
+    String machineId,
+    Duration additionalTime,
+  ) async {
+    final now = DateTime.now();
+    print(
+      'updateDailyStoppedTime called for machineId: $machineId with additionalTime: $additionalTime',
+    );
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final analytics =
+        await getMachineAnalytics(machineId) ??
+        MachineAnalytics(
+          machineId: machineId,
+          dailyStoppedTime: {},
+          monthlyStoppedTime: {},
+          yearlyStoppedTime: {},
+          totalWorkingTime: Duration.zero,
+          totalStoppedTime: Duration.zero,
+          stoppedWithoutMaintenanceTime: Duration.zero,
+          stoppedReadyForWorkTime: Duration.zero,
+          maintenanceInProgressTime: Duration.zero,
+          lastUpdated: now,
+        );
+
+    final currentDailyTime =
+        analytics.dailyStoppedTime[dateKey] ?? Duration.zero;
+    final newDailyTime = currentDailyTime + additionalTime;
+
+    // Create the full dailyStoppedTime map with the updated value
+    final updatedDailyStoppedTime = {...analytics.dailyStoppedTime};
+    updatedDailyStoppedTime[dateKey] = newDailyTime;
+
+    await updateMachineAnalytics(machineId, {
+      'dailyStoppedTime': MachineAnalytics.durationMapToJson(
+        updatedDailyStoppedTime,
+      ),
+      'totalStoppedTime':
+          analytics.totalStoppedTime.inSeconds + additionalTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+  }
+
+  static Future<void> updateWorkingTime(
+    String machineId,
+    Duration additionalTime,
+  ) async {
+    final now = DateTime.now();
+    print(
+      'updateWorkingTime called for machineId: $machineId with additionalTime: $additionalTime',
+    );
+    final analytics =
+        await getMachineAnalytics(machineId) ??
+        MachineAnalytics(
+          machineId: machineId,
+          dailyStoppedTime: {},
+          monthlyStoppedTime: {},
+          yearlyStoppedTime: {},
+          totalWorkingTime: Duration.zero,
+          totalStoppedTime: Duration.zero,
+          stoppedWithoutMaintenanceTime: Duration.zero,
+          stoppedReadyForWorkTime: Duration.zero,
+          maintenanceInProgressTime: Duration.zero,
+          lastUpdated: now,
+        );
+
+    await updateMachineAnalytics(machineId, {
+      'totalWorkingTime':
+          analytics.totalWorkingTime.inSeconds + additionalTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+  }
+
+  static Future<void> updateMaintenanceInProgressTime(
+    String machineId,
+    Duration additionalTime,
+  ) async {
+    final now = DateTime.now();
+    final analytics =
+        await getMachineAnalytics(machineId) ??
+        MachineAnalytics(
+          machineId: machineId,
+          dailyStoppedTime: {},
+          monthlyStoppedTime: {},
+          yearlyStoppedTime: {},
+          totalWorkingTime: Duration.zero,
+          totalStoppedTime: Duration.zero,
+          stoppedWithoutMaintenanceTime: Duration.zero,
+          stoppedReadyForWorkTime: Duration.zero,
+          maintenanceInProgressTime: Duration.zero,
+          lastUpdated: now,
+        );
+
+    await updateMachineAnalytics(machineId, {
+      'maintenanceInProgressTime':
+          analytics.maintenanceInProgressTime.inSeconds +
+          additionalTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+  }
+
+  static Future<void> updateStoppedWithoutMaintenanceTime(
+    String machineId,
+    Duration additionalTime,
+  ) async {
+    final now = DateTime.now();
+    final analytics =
+        await getMachineAnalytics(machineId) ??
+        MachineAnalytics(
+          machineId: machineId,
+          dailyStoppedTime: {},
+          monthlyStoppedTime: {},
+          yearlyStoppedTime: {},
+          totalWorkingTime: Duration.zero,
+          totalStoppedTime: Duration.zero,
+          stoppedWithoutMaintenanceTime: Duration.zero,
+          stoppedReadyForWorkTime: Duration.zero,
+          maintenanceInProgressTime: Duration.zero,
+          lastUpdated: now,
+        );
+
+    await updateMachineAnalytics(machineId, {
+      'stoppedWithoutMaintenanceTime':
+          analytics.stoppedWithoutMaintenanceTime.inSeconds +
+          additionalTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+  }
+
+  static Future<void> updateStoppedReadyForWorkTime(
+    String machineId,
+    Duration additionalTime,
+  ) async {
+    final now = DateTime.now();
+    final analytics =
+        await getMachineAnalytics(machineId) ??
+        MachineAnalytics(
+          machineId: machineId,
+          dailyStoppedTime: {},
+          monthlyStoppedTime: {},
+          yearlyStoppedTime: {},
+          totalWorkingTime: Duration.zero,
+          totalStoppedTime: Duration.zero,
+          stoppedWithoutMaintenanceTime: Duration.zero,
+          stoppedReadyForWorkTime: Duration.zero,
+          maintenanceInProgressTime: Duration.zero,
+          lastUpdated: now,
+        );
+
+    await updateMachineAnalytics(machineId, {
+      'stoppedReadyForWorkTime':
+          analytics.stoppedReadyForWorkTime.inSeconds +
+          additionalTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+  }
+
+  // Method to aggregate monthly and yearly statistics from daily data
+  static Future<void> aggregateMonthlyYearlyStats(String machineId) async {
+    final now = DateTime.now();
+    final analytics = await getMachineAnalytics(machineId);
+
+    if (analytics != null) {
+      // Aggregate monthly data
+      final monthlyStoppedTime = <String, Duration>{};
+      for (final entry in analytics.dailyStoppedTime.entries) {
+        final dateParts = entry.key.split('-');
+        if (dateParts.length == 3) {
+          final monthKey = '${dateParts[0]}-${dateParts[1]}';
+          monthlyStoppedTime.update(
+            monthKey,
+            (existing) => existing + entry.value,
+            ifAbsent: () => entry.value,
+          );
+        }
+      }
+
+      // Aggregate yearly data
+      final yearlyStoppedTime = <String, Duration>{};
+      for (final entry in analytics.dailyStoppedTime.entries) {
+        final dateParts = entry.key.split('-');
+        if (dateParts.length == 3) {
+          final yearKey = dateParts[0];
+          yearlyStoppedTime.update(
+            yearKey,
+            (existing) => existing + entry.value,
+            ifAbsent: () => entry.value,
+          );
+        }
+      }
+
+      await updateMachineAnalytics(machineId, {
+        'monthlyStoppedTime': MachineAnalytics.durationMapToJson(
+          monthlyStoppedTime,
+        ),
+        'yearlyStoppedTime': MachineAnalytics.durationMapToJson(
+          yearlyStoppedTime,
+        ),
+        'lastUpdated': now.toIso8601String(),
+      });
+    }
   }
 }

@@ -4,6 +4,7 @@ import '../../models/session_model.dart';
 import '../../services/firebase_service.dart';
 import '../../models/operator_model.dart';
 import '../../models/machine_model.dart';
+import '../../models/machine_analytics_model.dart';
 
 class WorkHistoryManagement extends StatefulWidget {
   const WorkHistoryManagement({super.key});
@@ -269,6 +270,35 @@ class _WorkHistoryManagementState extends State<WorkHistoryManagement> {
                         : SessionStatus.closed,
                   );
                   await FirebaseService.createSession(newSession);
+
+                  // Update machine analytics when session is created
+                  final now = DateTime.now();
+                  final dateKey =
+                      '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+                  // Calculate stopped duration if endTime is provided
+                  Duration stoppedDuration = Duration.zero;
+                  if (endTimeController.text.isNotEmpty) {
+                    final start = DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).parseStrict(startTimeController.text);
+                    final end = DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).parseStrict(endTimeController.text);
+                    stoppedDuration = end.difference(start);
+                    if (stoppedDuration.isNegative) {
+                      stoppedDuration = Duration.zero;
+                    }
+                  }
+
+                  print(
+                    'UI: Calling updateDailyStoppedTime with machineId: ${machineController.text}, duration: $stoppedDuration',
+                  );
+                  await FirebaseService.updateDailyStoppedTime(
+                    machineController.text,
+                    stoppedDuration,
+                  );
+
                   Navigator.pop(context);
                 } catch (e) {
                   // Show an error message if date parsing fails
@@ -460,6 +490,35 @@ class _WorkHistoryManagementState extends State<WorkHistoryManagement> {
                       : SessionStatus.closed,
                 );
                 await FirebaseService.updateSession(updatedSession);
+
+                // Update machine analytics when session is updated
+                final now = DateTime.now();
+                final dateKey =
+                    '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+                // Calculate working time duration based on start and end times
+                Duration workingDuration = Duration.zero;
+                if (endTimeController.text.isNotEmpty) {
+                  final start = DateFormat(
+                    'dd/MM/yyyy HH:mm',
+                  ).parseStrict(startTimeController.text);
+                  final end = DateFormat(
+                    'dd/MM/yyyy HH:mm',
+                  ).parseStrict(endTimeController.text);
+                  workingDuration = end.difference(start);
+                  if (workingDuration.isNegative) {
+                    workingDuration = Duration.zero;
+                  }
+                }
+
+                print(
+                  'UI: Calling updateWorkingTime with machineId: ${machineController.text}, duration: $workingDuration',
+                );
+                await FirebaseService.updateWorkingTime(
+                  machineController.text,
+                  workingDuration,
+                );
+
                 Navigator.pop(context);
               },
               child: const Text('Save'),
