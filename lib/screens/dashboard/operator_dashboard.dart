@@ -25,7 +25,36 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   DateTime? _sessionStartTime;
   Timer? _analyticsUpdateTimer;
 
+  String? lastScannedUid; // Add this field to hold last scanned UID
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Listen for RFID tag scans for each machine under scans/{machineId}
+    // Assuming widget.user.id is operator matricule, but we need machine-specific scan paths
+    // So we will listen to scans/{machineId} for each machine and update lastScannedUid accordingly
+    // For simplicity, listen to all machines and update lastScannedUid when any scan occurs
+
+    // Fetch machines and listen to their scan paths
+    FirebaseService.getMachines().listen((machines) {
+      for (var machine in machines) {
+        FirebaseService.listenForRfidTagScans(machine.id).listen((uid) {
+          setState(() {
+            lastScannedUid = uid;
+          });
+          print(
+            'OperatorDashboard: New scanned UID for machine ${machine.id}: $uid',
+          );
+        });
+      }
+    });
+  }
+
   void _startWork(Machine machine) {
+    print(
+      'Start Work button clicked for machine: ${machine.name}',
+    ); // Debug print
     // Show confirmation dialog
     showDialog(
       context: context,
@@ -42,8 +71,109 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              // Start work on the machine
-              await _startWorkOnMachine(machine);
+
+              // Show dialog prompting operator to pass RFID tag
+              final rfidConfirmed = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('Pass your RFID tag'),
+                    content: const Text(
+                      'Please pass your RFID tag to the reader.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Start Scanning'),
+                      ),
+                    ],
+                  );
+                },
+              );
+
+              if (rfidConfirmed == false) {
+                // Operator cancelled RFID tag prompt
+                return;
+              }
+
+              // Immediately read the last scanned UID if available and update operator
+              if (lastScannedUid != null && lastScannedUid!.isNotEmpty) {
+                print('Using last scanned UID: $lastScannedUid');
+                await FirebaseService.updateOperatorRfidTagIfMissing(
+                  widget.user.id,
+                  lastScannedUid!,
+                );
+                await _startWorkOnMachine(machine);
+                return;
+              }
+
+              // Listen for RFID tag scan from Realtime Database
+              final operatorMatricule = widget.user.id;
+              print(
+                'Starting RFID scan for operator: $operatorMatricule',
+              ); // Debug print
+              if (operatorMatricule.isEmpty) {
+                // Cannot proceed without operator matricule
+                print('Error: Operator matricule is empty'); // Debug print
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Operator matricule not found.'),
+                  ),
+                );
+                return;
+              }
+
+              print('Setting up RFID stream subscription...'); // Debug print
+              print(
+                'About to call listenForRfidTagScans with matricule: $operatorMatricule',
+              ); // Debug print
+              late StreamSubscription<String> subscription;
+              subscription =
+                  FirebaseService.listenForRfidTagScans(
+                    operatorMatricule,
+                  ).listen((tagUid) async {
+                    print('RFID tag detected: $tagUid'); // Debug print
+
+                    // Show dialog "I read your tag"
+                    await showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Tag Read'),
+                        content: const Text('I read your tag.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    // Update operator Firestore document if UID tag missing
+                    await FirebaseService.updateOperatorRfidTagIfMissing(
+                      operatorMatricule,
+                      tagUid,
+                    );
+
+                    // Start work on machine
+                    await _startWorkOnMachine(machine);
+
+                    // Cancel subscription after first tag read
+                    await subscription.cancel();
+                  });
+
+              // Optionally, add a timeout to cancel listening after some time (e.g., 30 seconds)
+              Future.delayed(const Duration(seconds: 30), () async {
+                await subscription.cancel();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('RFID tag read timed out.')),
+                );
+              });
             },
             child: const Text('Confirm'),
           ),
@@ -410,6 +540,16 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Last Scanned RFID Tag UID:',
+            style: TextStyle(fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            lastScannedUid ?? 'No scans yet',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
           const Text(
             'My Machines',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),

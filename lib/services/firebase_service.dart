@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart';
 import '../models/operator_model.dart';
@@ -17,6 +19,11 @@ import '../models/machine_analytics_model.dart';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final FirebaseDatabase _realtimeDatabase =
+      FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://wewire-18bc2-default-rtdb.firebaseio.com/',
+      );
 
   // Operator operations
   static Future<void> saveOperator(Operator operator) async {
@@ -24,6 +31,88 @@ class FirebaseService {
         .collection('operators')
         .doc(operator.matricule)
         .set(operator.toJson());
+  }
+
+  /// Listen for RFID tag UID scans for a given operator matricule in Realtime Database "scans" path.
+  /// Returns a stream of tag UIDs detected for the operator.
+  static Stream<String> listenForRfidTagScans(String operatorMatricule) {
+    final DatabaseReference scansRef = _realtimeDatabase.ref('scans');
+
+    print('listenForRfidTagScans: Listener attached to /scans'); // Debug print
+
+    // Listen to child added events under "scans"
+    return scansRef.onChildAdded
+        .asyncMap((event) async {
+          print(
+            'listenForRfidTagScans: onChildAdded event received',
+          ); // Debug print
+          print(
+            'listenForRfidTagScans: Event data: ${event.snapshot.value}',
+          ); // Debug print
+          final data = event.snapshot.value;
+          if (data is Map<dynamic, dynamic>) {
+            final uid = data['uid'] as String?;
+            // Adjusted: operatorMatricule may not be present in scan data
+            // So we only check for uid presence
+            if (uid != null) {
+              print('listenForRfidTagScans: Emitting uid: $uid'); // Debug print
+              return uid;
+            } else {
+              print(
+                'listenForRfidTagScans: No uid field found in data',
+              ); // Debug print
+            }
+          } else {
+            print(
+              'listenForRfidTagScans: Data is not a Map: $data',
+            ); // Debug print
+          }
+          return null;
+        })
+        .where((uid) => uid != null)
+        .cast<String>();
+  }
+
+  /// Manual fetch of current scans data for testing read access and data structure.
+  static Future<List<String>> fetchCurrentScans() async {
+    final DatabaseReference scansRef = _realtimeDatabase.ref('scans');
+    try {
+      final snapshot = await scansRef.get();
+      if (snapshot.exists) {
+        final data = snapshot.value;
+        if (data is Map<dynamic, dynamic>) {
+          final uids = data.values
+              .map((entry) => entry['uid'] as String?)
+              .whereType<String>()
+              .toList();
+          print('fetchCurrentScans: Retrieved UIDs: $uids');
+          return uids;
+        } else {
+          print('fetchCurrentScans: Data is not a Map: $data');
+        }
+      } else {
+        print('fetchCurrentScans: No data found at /scans');
+      }
+    } catch (e) {
+      print('fetchCurrentScans: Error fetching scans: $e');
+    }
+    return [];
+  }
+
+  /// Update the operator Firestore document with the RFID tag UID if not already set.
+  static Future<void> updateOperatorRfidTagIfMissing(
+    String operatorMatricule,
+    String rfidTagUid,
+  ) async {
+    final docRef = _firestore.collection('operators').doc(operatorMatricule);
+    final docSnapshot = await docRef.get();
+    if (docSnapshot.exists) {
+      final data = docSnapshot.data();
+      if (data != null &&
+          (data['rfidTagUid'] == null || data['rfidTagUid'] == '')) {
+        await docRef.update({'rfidTagUid': rfidTagUid});
+      }
+    }
   }
 
   static Future<Operator?> getOperator(String matricule) async {

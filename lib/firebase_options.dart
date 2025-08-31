@@ -46,6 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
     authDomain: 'wewire-18bc2.firebaseapp.com',
+    databaseURL: 'https://wewire-18bc2-default-rtdb.firebaseio.com',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
   );
 
@@ -54,6 +55,7 @@ class DefaultFirebaseOptions {
     appId: '1:505805164580:android:973439ec88414cf1f548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
+    databaseURL: 'https://wewire-18bc2-default-rtdb.firebaseio.com',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
   );
 
@@ -62,6 +64,7 @@ class DefaultFirebaseOptions {
     appId: '1:505805164580:ios:3b2d0ee9be304ddcf548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
+    databaseURL: 'https://wewire-18bc2-default-rtdb.firebaseio.com',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
     iosBundleId: 'com.example.wewireMaintenanceSystem',
   );
@@ -71,6 +74,7 @@ class DefaultFirebaseOptions {
     appId: '1:505805164580:ios:3b2d0ee9be304ddcf548b1',
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
+    databaseURL: 'https://wewire-18bc2-default-rtdb.firebaseio.com',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
     iosBundleId: 'com.example.wewireMaintenanceSystem',
   );
@@ -81,6 +85,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '505805164580',
     projectId: 'wewire-18bc2',
     authDomain: 'wewire-18bc2.firebaseapp.com',
+    databaseURL: 'https://wewire-18bc2-default-rtdb.firebaseio.com',
     storageBucket: 'wewire-18bc2.firebasestorage.app',
   );
 
