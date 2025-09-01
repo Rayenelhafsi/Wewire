@@ -29,6 +29,8 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   String? lastScannedUid; // Add this field to hold last scanned UID
   String? currentScanSessionUid; // Track UID for current scanning session
 
+  String? _rfidMismatchMessage; // New state for mismatch message
+
   @override
   void initState() {
     super.initState();
@@ -199,6 +201,108 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                 if (currentScanSessionUid == null) {
                   print('Processing new RFID scan: $tagUid'); // Debug print
 
+                  // Check if operator has RFID tag assigned
+                  final operatorDoc = await FirebaseService.getOperator(
+                    operatorMatricule,
+                  );
+                  final operatorRfidTag = operatorDoc?.rfidTagUid;
+
+                  if (operatorRfidTag == null || operatorRfidTag.isEmpty) {
+                    // Operator does not have RFID tag assigned, check if tag is owned by another operator
+                    final existingOwner =
+                        await FirebaseService.getOperatorByRfidTag(tagUid);
+                    if (existingOwner != null &&
+                        existingOwner != operatorMatricule) {
+                      print(
+                        'RFID tag $tagUid is already owned by operator $existingOwner',
+                      );
+                      if (mounted) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted && context.mounted) {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (dialogContext) => AlertDialog(
+                                title: const Text('RFID Tag Already Assigned'),
+                                content: Text(
+                                  'RFID tag ($tagUid) is already assigned to another operator. '
+                                  'Please use a different RFID tag or contact your administrator.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        });
+                      }
+                      return;
+                    }
+
+                    // Assign the tag to the operator
+                    final assigned =
+                        await FirebaseService.assignRfidTagToOperator(
+                          operatorMatricule,
+                          tagUid,
+                        );
+                    if (!assigned) {
+                      print(
+                        'Failed to assign RFID tag $tagUid to operator $operatorMatricule',
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Failed to assign RFID tag to operator.',
+                            ),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    print(
+                      'RFID tag $tagUid assigned to operator $operatorMatricule',
+                    );
+                  } else {
+                    // Operator has RFID tag assigned, verify scanned tag matches
+                    if (operatorRfidTag != tagUid) {
+                      print(
+                        'Scanned RFID tag $tagUid does not match operator\'s assigned tag $operatorRfidTag',
+                      );
+
+                      // Show dialog instead of just snackbar
+                      if (mounted) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted && context.mounted) {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (dialogContext) => AlertDialog(
+                                title: const Text('RFID Tag Mismatch'),
+                                content: Text(
+                                  'Scanned RFID tag ($tagUid) does not match your assigned tag ($operatorRfidTag). '
+                                  'Please use your assigned RFID tag to start working.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        });
+                      }
+                      return;
+                    }
+                  }
+
                   // Update both session and global UIDs
                   if (mounted) {
                     setState(() {
@@ -209,22 +313,24 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
 
                   // Show dialog "I read your tag" using addPostFrameCallback to ensure valid context
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Tag Read'),
-                        content: Text(
-                          'I read your tag you can start working on machine ${machine.id}.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
+                    if (mounted && context.mounted) {
+                      showDialog(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Tag Read'),
+                          content: Text(
+                            'I read your tag you can start working on machine ${machine.id}.',
                           ),
-                        ],
-                      ),
-                    );
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                   });
 
                   // Cancel subscription after first tag read

@@ -148,6 +148,98 @@ class FirebaseService {
     }
   }
 
+  /// Check if an RFID tag UID is already owned by another operator
+  static Future<String?> getOperatorByRfidTag(String rfidTagUid) async {
+    try {
+      final query = await _firestore
+          .collection('operators')
+          .where('rfidTagUid', isEqualTo: rfidTagUid)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        final operatorData = query.docs.first.data();
+        return operatorData['matricule'] as String?;
+      }
+      return null; // Tag not owned by any operator
+    } catch (e) {
+      print('Error checking RFID tag ownership: $e');
+      return null;
+    }
+  }
+
+  /// Assign RFID tag to operator if not already owned
+  static Future<bool> assignRfidTagToOperator(
+    String operatorMatricule,
+    String rfidTagUid,
+  ) async {
+    try {
+      // First check if tag is already owned by another operator
+      final existingOwner = await getOperatorByRfidTag(rfidTagUid);
+      if (existingOwner != null && existingOwner != operatorMatricule) {
+        print(
+          'RFID tag $rfidTagUid is already owned by operator $existingOwner',
+        );
+        return false; // Tag already owned by another operator
+      }
+
+      // Check if operator already has a tag assigned
+      final operatorDoc = await _firestore
+          .collection('operators')
+          .doc(operatorMatricule)
+          .get();
+
+      if (operatorDoc.exists) {
+        final operatorData = operatorDoc.data();
+        final existingTag = operatorData?['rfidTagUid'] as String?;
+
+        if (existingTag != null && existingTag.isNotEmpty) {
+          print(
+            'Operator $operatorMatricule already has RFID tag $existingTag assigned',
+          );
+          return existingTag ==
+              rfidTagUid; // Return true only if it's the same tag
+        }
+      }
+
+      // Assign the tag to the operator
+      await _firestore.collection('operators').doc(operatorMatricule).update({
+        'rfidTagUid': rfidTagUid,
+        'rfidTagAssignedAt': FieldValue.serverTimestamp(),
+      });
+
+      print(
+        'Successfully assigned RFID tag $rfidTagUid to operator $operatorMatricule',
+      );
+      return true;
+    } catch (e) {
+      print('Error assigning RFID tag to operator: $e');
+      return false;
+    }
+  }
+
+  /// Verify if the scanned RFID tag belongs to the current operator
+  static Future<bool> verifyOperatorRfidTag(
+    String operatorMatricule,
+    String scannedRfidTagUid,
+  ) async {
+    try {
+      final operatorDoc = await _firestore
+          .collection('operators')
+          .doc(operatorMatricule)
+          .get();
+
+      if (operatorDoc.exists) {
+        final operatorData = operatorDoc.data();
+        final assignedTag = operatorData?['rfidTagUid'] as String?;
+        return assignedTag == scannedRfidTagUid;
+      }
+      return false;
+    } catch (e) {
+      print('Error verifying operator RFID tag: $e');
+      return false;
+    }
+  }
+
   static Future<Operator?> getOperator(String matricule) async {
     final doc = await _firestore.collection('operators').doc(matricule).get();
     if (doc.exists) {
