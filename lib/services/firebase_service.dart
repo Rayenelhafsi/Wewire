@@ -33,14 +33,18 @@ class FirebaseService {
         .set(operator.toJson());
   }
 
-  /// Listen for RFID tag UID scans for a given operator matricule in Realtime Database "scans" path.
-  /// Returns a stream of tag UIDs detected for the operator.
-  static Stream<String> listenForRfidTagScans(String operatorMatricule) {
-    final DatabaseReference scansRef = _realtimeDatabase.ref('scans');
+  /// Listen for RFID tag UID scans for a given machine in Realtime Database "scans/{machineId}" path.
+  /// Returns a stream of tag UIDs detected for the machine.
+  static Stream<String> listenForRfidTagScans(String machineId) {
+    final DatabaseReference scansRef = _realtimeDatabase.ref(
+      'scans/$machineId',
+    );
 
-    print('listenForRfidTagScans: Listener attached to /scans'); // Debug print
+    print(
+      'listenForRfidTagScans: Listener attached to /scans/$machineId',
+    ); // Debug print
 
-    // Listen to child added events under "scans"
+    // Listen to child added events under "scans/{machineId}"
     return scansRef.onChildAdded
         .asyncMap((event) async {
           print(
@@ -52,8 +56,6 @@ class FirebaseService {
           final data = event.snapshot.value;
           if (data is Map<dynamic, dynamic>) {
             final uid = data['uid'] as String?;
-            // Adjusted: operatorMatricule may not be present in scan data
-            // So we only check for uid presence
             if (uid != null) {
               print('listenForRfidTagScans: Emitting uid: $uid'); // Debug print
               return uid;
@@ -97,6 +99,37 @@ class FirebaseService {
       print('fetchCurrentScans: Error fetching scans: $e');
     }
     return [];
+  }
+
+  /// Fetch the last scanned UID for a specific machine from Realtime Database "scans/{machineId}" path.
+  static Future<String?> fetchLastScanForMachine(String machineId) async {
+    final DatabaseReference scansRef = _realtimeDatabase.ref(
+      'scans/$machineId',
+    );
+    try {
+      final snapshot = await scansRef.orderByKey().limitToLast(1).get();
+      if (snapshot.exists) {
+        final data = snapshot.value;
+        if (data is Map<dynamic, dynamic>) {
+          // The last scan entry is the only entry in this map
+          final lastEntry = data.values.first;
+          if (lastEntry is Map<dynamic, dynamic>) {
+            final uid = lastEntry['uid'] as String?;
+            if (uid != null) {
+              print('fetchLastScanForMachine: Retrieved last UID: $uid');
+              return uid;
+            }
+          }
+        } else {
+          print('fetchLastScanForMachine: Data is not a Map: $data');
+        }
+      } else {
+        print('fetchLastScanForMachine: No data found at /scans/$machineId');
+      }
+    } catch (e) {
+      print('fetchLastScanForMachine: Error fetching last scan: $e');
+    }
+    return null;
   }
 
   /// Update the operator Firestore document with the RFID tag UID if not already set.

@@ -24,29 +24,76 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   String? _currentSessionId;
   DateTime? _sessionStartTime;
   Timer? _analyticsUpdateTimer;
+  StreamSubscription<String>? _globalScanSubscription;
 
   String? lastScannedUid; // Add this field to hold last scanned UID
 
   @override
   void initState() {
     super.initState();
+    _fetchLastScannedUidOnInit();
+    _setupGlobalScanListener();
+  }
 
-    // Listen for RFID tag scans for each machine under scans/{machineId}
-    // Assuming widget.user.id is operator matricule, but we need machine-specific scan paths
-    // So we will listen to scans/{machineId} for each machine and update lastScannedUid accordingly
-    // For simplicity, listen to all machines and update lastScannedUid when any scan occurs
+  @override
+  void dispose() {
+    _globalScanSubscription?.cancel();
+    _analyticsUpdateTimer?.cancel();
+    super.dispose();
+  }
 
-    // Fetch machines and listen to their scan paths
-    FirebaseService.getMachines().listen((machines) {
-      for (var machine in machines) {
-        FirebaseService.listenForRfidTagScans(machine.id).listen((uid) {
+  Future<void> _fetchLastScannedUidOnInit() async {
+    try {
+      // Listen to the stream and get the first emission
+      final machinesStream = FirebaseService.getMachinesByAssignedOperator(
+        widget.user.id,
+      );
+      final machines = await machinesStream.first;
+
+      if (machines.isNotEmpty) {
+        // For each assigned machine, fetch the last scan and find the most recent
+        String? mostRecentUid;
+
+        for (final machine in machines) {
+          final uid = await FirebaseService.fetchLastScanForMachine(machine.id);
+          if (uid != null) {
+            // Since we don't have timestamps in the current implementation,
+            // we'll just take the first non-null UID we find
+            // In a more complete implementation, you'd store timestamps with scans
+            mostRecentUid = uid;
+            break; // For now, just use the first one found
+          }
+        }
+
+        if (mostRecentUid != null) {
           setState(() {
-            lastScannedUid = uid;
+            lastScannedUid = mostRecentUid;
           });
-          print(
-            'OperatorDashboard: New scanned UID for machine ${machine.id}: $uid',
-          );
-        });
+        }
+      }
+    } catch (e) {
+      print('Error fetching last scanned UID: $e');
+    }
+  }
+
+  void _setupGlobalScanListener() {
+    // Listen to machines assigned to the operator
+    FirebaseService.getMachinesByAssignedOperator(widget.user.id).listen((
+      machines,
+    ) {
+      if (machines.isNotEmpty) {
+        // Set up listeners for each machine's RFID scans
+        for (final machine in machines) {
+          FirebaseService.listenForRfidTagScans(machine.id).listen((tagUid) {
+            print(
+              'Global scan listener: RFID tag detected: $tagUid for machine: ${machine.id}',
+            );
+            // Update the global lastScannedUid whenever any scan occurs
+            setState(() {
+              lastScannedUid = tagUid;
+            });
+          });
+        }
       }
     });
   }
@@ -101,43 +148,37 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                 return;
               }
 
-              // Immediately read the last scanned UID if available and update operator
-              if (lastScannedUid != null && lastScannedUid!.isNotEmpty) {
-                print('Using last scanned UID: $lastScannedUid');
-                await FirebaseService.updateOperatorRfidTagIfMissing(
-                  widget.user.id,
-                  lastScannedUid!,
-                );
-                await _startWorkOnMachine(machine);
-                return;
-              }
+              // Clear any previous scanned UID to ensure we wait for a new scan
+              lastScannedUid = null;
 
               // Listen for RFID tag scan from Realtime Database
+              final machineId = machine.id;
               final operatorMatricule = widget.user.id;
               print(
-                'Starting RFID scan for operator: $operatorMatricule',
+                'Starting RFID scan for machine: $machineId',
               ); // Debug print
-              if (operatorMatricule.isEmpty) {
-                // Cannot proceed without operator matricule
-                print('Error: Operator matricule is empty'); // Debug print
+              if (machineId.isEmpty) {
+                // Cannot proceed without machine id
+                print('Error: Machine id is empty'); // Debug print
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Operator matricule not found.'),
-                  ),
+                  const SnackBar(content: Text('Machine id not found.')),
                 );
                 return;
               }
 
               print('Setting up RFID stream subscription...'); // Debug print
               print(
-                'About to call listenForRfidTagScans with matricule: $operatorMatricule',
+                'About to call listenForRfidTagScans with machineId: $machineId',
               ); // Debug print
               late StreamSubscription<String> subscription;
-              subscription =
-                  FirebaseService.listenForRfidTagScans(
-                    operatorMatricule,
-                  ).listen((tagUid) async {
+              subscription = FirebaseService.listenForRfidTagScans(machineId)
+                  .listen((tagUid) async {
                     print('RFID tag detected: $tagUid'); // Debug print
+
+                    // Update lastScannedUid
+                    setState(() {
+                      lastScannedUid = tagUid;
+                    });
 
                     // Show dialog "I read your tag"
                     await showDialog(
@@ -183,6 +224,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   }
 
   Future<void> _startWorkOnMachine(Machine machine) async {
+    print('DEBUG: _startWorkOnMachine called for machine: ${machine.name}');
     try {
       final startTime = DateTime.now();
 
@@ -243,7 +285,9 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Started working on ${machine.name}')),
       );
+      print('DEBUG: _startWorkOnMachine completed successfully');
     } catch (e) {
+      print('ERROR in _startWorkOnMachine: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to start work: $e')));
