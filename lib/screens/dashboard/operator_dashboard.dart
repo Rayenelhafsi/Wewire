@@ -27,6 +27,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   StreamSubscription<String>? _globalScanSubscription;
 
   String? lastScannedUid; // Add this field to hold last scanned UID
+  String? currentScanSessionUid; // Track UID for current scanning session
 
   @override
   void initState() {
@@ -148,21 +149,26 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                 return;
               }
 
-              // Clear any previous scanned UID to ensure we wait for a new scan
-              lastScannedUid = null;
+              // Clear the current scan session UID to ensure we wait for a new scan
+              currentScanSessionUid = null;
+
+              // Record the time when user confirmed to start scanning
+              final scanStartTime = DateTime.now();
 
               // Listen for RFID tag scan from Realtime Database
               final machineId = machine.id;
               final operatorMatricule = widget.user.id;
               print(
-                'Starting RFID scan for machine: $machineId',
+                'Starting RFID scan for machine: $machineId at $scanStartTime',
               ); // Debug print
               if (machineId.isEmpty) {
                 // Cannot proceed without machine id
                 print('Error: Machine id is empty'); // Debug print
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Machine id not found.')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Machine id not found.')),
+                  );
+                }
                 return;
               }
 
@@ -170,22 +176,47 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
               print(
                 'About to call listenForRfidTagScans with machineId: $machineId',
               ); // Debug print
-              late StreamSubscription<String> subscription;
-              subscription = FirebaseService.listenForRfidTagScans(machineId)
-                  .listen((tagUid) async {
-                    print('RFID tag detected: $tagUid'); // Debug print
 
-                    // Update lastScannedUid
+              // Add a small delay to allow the listener to be set up before processing scans
+              // This helps avoid processing cached/previous scans
+              bool isListeningActive = false;
+              late StreamSubscription<String> subscription;
+
+              subscription = FirebaseService.listenForRfidTagScans(machineId).listen((
+                tagUid,
+              ) async {
+                print('RFID tag detected: $tagUid'); // Debug print
+
+                // Only start processing scans after a brief delay to avoid cached data
+                if (!isListeningActive) {
+                  print(
+                    'Ignoring initial/cached RFID scan: $tagUid',
+                  ); // Debug print
+                  return;
+                }
+
+                // Only process the scan if we haven't processed one in this session yet
+                if (currentScanSessionUid == null) {
+                  print('Processing new RFID scan: $tagUid'); // Debug print
+
+                  // Update both session and global UIDs
+                  if (mounted) {
                     setState(() {
+                      currentScanSessionUid = tagUid;
                       lastScannedUid = tagUid;
                     });
+                  }
 
-                    // Show dialog "I read your tag"
-                    await showDialog(
+                  // Show dialog "I read your tag" using addPostFrameCallback to ensure valid context
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Tag Read'),
-                        content: const Text('I read your tag.'),
+                        content: Text(
+                          'I read your tag you can start working on machine ${machine.id}.',
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(),
@@ -194,26 +225,39 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                         ],
                       ),
                     );
-
-                    // Update operator Firestore document if UID tag missing
-                    await FirebaseService.updateOperatorRfidTagIfMissing(
-                      operatorMatricule,
-                      tagUid,
-                    );
-
-                    // Start work on machine
-                    await _startWorkOnMachine(machine);
-
-                    // Cancel subscription after first tag read
-                    await subscription.cancel();
                   });
+
+                  // Cancel subscription after first tag read
+                  await subscription.cancel();
+
+                  // Update operator Firestore document if UID tag missing
+                  await FirebaseService.updateOperatorRfidTagIfMissing(
+                    operatorMatricule,
+                    tagUid,
+                  );
+
+                  // Start work on machine
+                  await _startWorkOnMachine(machine);
+                } else {
+                  print('Ignoring duplicate RFID scan: $tagUid'); // Debug print
+                }
+              });
+
+              // Activate listening after a short delay to avoid processing cached data
+              Future.delayed(const Duration(milliseconds: 500), () {
+                isListeningActive = true;
+                print('RFID listening now active for new scans'); // Debug print
+              });
 
               // Optionally, add a timeout to cancel listening after some time (e.g., 30 seconds)
               Future.delayed(const Duration(seconds: 30), () async {
                 await subscription.cancel();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('RFID tag read timed out.')),
-                );
+                if (!mounted) return;
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('RFID tag read timed out.')),
+                  );
+                }
               });
             },
             child: const Text('Confirm'),
