@@ -118,6 +118,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Clear session storage (for operators/technicians)
                 await SessionService.clearSession();
 
+                // Add a small delay to ensure signOut and clearSession complete
+                await Future.delayed(const Duration(milliseconds: 300));
+
                 Navigator.pushReplacementNamed(context, '/');
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(

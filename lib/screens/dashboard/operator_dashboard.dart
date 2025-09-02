@@ -34,6 +34,9 @@ class _OperatorDashboardState extends State<OperatorDashboard>
 
   String? _rfidMismatchMessage; // New state for mismatch message
 
+  // Store all subscriptions to cancel on dispose
+  final List<StreamSubscription> _subscriptions = [];
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +50,10 @@ class _OperatorDashboardState extends State<OperatorDashboard>
     _tabController.dispose();
     _globalScanSubscription?.cancel();
     _analyticsUpdateTimer?.cancel();
+    // Cancel all stored subscriptions
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
     super.dispose();
   }
 
@@ -86,24 +93,28 @@ class _OperatorDashboardState extends State<OperatorDashboard>
 
   void _setupGlobalScanListener() {
     // Listen to machines assigned to the operator
-    FirebaseService.getMachinesByAssignedOperator(widget.user.id).listen((
-      machines,
-    ) {
-      if (machines.isNotEmpty) {
-        // Set up listeners for each machine's RFID scans
-        for (final machine in machines) {
-          FirebaseService.listenForRfidTagScans(machine.id).listen((tagUid) {
-            debugPrint(
-              'Global scan listener: RFID tag detected: $tagUid for machine: ${machine.id}',
-            );
-            // Update the global lastScannedUid whenever any scan occurs
-            setState(() {
-              lastScannedUid = tagUid;
-            });
-          });
-        }
-      }
-    });
+    final machinesSub =
+        FirebaseService.getMachinesByAssignedOperator(widget.user.id).listen((
+          machines,
+        ) {
+          if (machines.isNotEmpty) {
+            // Set up listeners for each machine's RFID scans
+            for (final machine in machines) {
+              final rfidSub = FirebaseService.listenForRfidTagScans(machine.id)
+                  .listen((tagUid) {
+                    debugPrint(
+                      'Global scan listener: RFID tag detected: $tagUid for machine: ${machine.id}',
+                    );
+                    // Update the global lastScannedUid whenever any scan occurs
+                    setState(() {
+                      lastScannedUid = tagUid;
+                    });
+                  });
+              _subscriptions.add(rfidSub);
+            }
+          }
+        });
+    _subscriptions.add(machinesSub);
   }
 
   void _startWork(Machine machine) {
