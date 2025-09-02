@@ -105,13 +105,59 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
     debugPrint(
       'Start Work button clicked for machine: ${machine.name}',
     ); // Debug print
-    // Show confirmation dialog
+    // Show form for cable reference and quantity objective
+    final cableReferenceController = TextEditingController();
+    final quantityObjectiveController = TextEditingController();
+    final _formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Start Work'),
-        content: Text(
-          'Are you sure you want to start working on ${machine.name}?',
+        content: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Machine: ${machine.name}'),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: cableReferenceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cable Reference',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter cable reference';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: quantityObjectiveController,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity Objective',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter quantity objective';
+                    }
+                    final num = int.tryParse(value);
+                    if (num == null || num <= 0) {
+                      return 'Please enter a valid positive number';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(
@@ -120,6 +166,13 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (!_formKey.currentState!.validate()) {
+                return;
+              }
+              final cableReference = cableReferenceController.text.trim();
+              final quantityObjective = int.parse(
+                quantityObjectiveController.text.trim(),
+              );
               Navigator.pop(context);
 
               // Show dialog prompting operator to pass RFID tag
@@ -347,7 +400,11 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                   );
 
                   // Start work on machine
-                  await _startWorkOnMachine(machine);
+                  await _startWorkOnMachine(
+                    machine,
+                    cableReference,
+                    quantityObjective,
+                  );
                 } else {
                   print('Ignoring duplicate RFID scan: $tagUid'); // Debug print
                 }
@@ -377,7 +434,11 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
     );
   }
 
-  Future<void> _startWorkOnMachine(Machine machine) async {
+  Future<void> _startWorkOnMachine(
+    Machine machine,
+    String cableReference,
+    int quantityObjective,
+  ) async {
     print('DEBUG: _startWorkOnMachine called for machine: ${machine.name}');
     try {
       final startTime = DateTime.now();
@@ -394,6 +455,8 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
             'Operator ${widget.user.name} started working on ${machine.name}',
         startTime: startTime,
         status: SessionStatus.inProgress, // In progress status for active work
+        cableReference: cableReference,
+        quantityObjective: quantityObjective,
       );
 
       // Save the session to Firestore
@@ -480,12 +543,65 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   }
 
   void _stopWork() {
-    // Show confirmation dialog
+    // Show form dialog to enter producedQuantity and scrapQuantity
+    final producedQuantityController = TextEditingController();
+    final scrapQuantityController = TextEditingController();
+    final _formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Stop Work'),
-        content: const Text('Are you sure you want to stop working?'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Machine: ${_currentlyWorkingMachineId ?? ''}'),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: producedQuantityController,
+                  decoration: const InputDecoration(
+                    labelText: 'Produced Quantity',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter produced quantity';
+                    }
+                    final num = int.tryParse(value);
+                    if (num == null || num < 0) {
+                      return 'Please enter a valid non-negative number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: scrapQuantityController,
+                  decoration: const InputDecoration(
+                    labelText: 'Scrap Quantity',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter scrap quantity';
+                    }
+                    final num = int.tryParse(value);
+                    if (num == null || num < 0) {
+                      return 'Please enter a valid non-negative number';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -493,9 +609,17 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (!_formKey.currentState!.validate()) {
+                return;
+              }
+              final producedQuantity = int.parse(
+                producedQuantityController.text.trim(),
+              );
+              final scrapQuantity = int.parse(
+                scrapQuantityController.text.trim(),
+              );
               Navigator.pop(context);
-              // Stop work
-              await _stopWorkOnMachine();
+              await _stopWorkOnMachine(producedQuantity, scrapQuantity);
             },
             child: const Text('Confirm'),
           ),
@@ -504,25 +628,44 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
     );
   }
 
-  Future<void> _stopWorkOnMachine() async {
+  Future<void> _stopWorkOnMachine(
+    int producedQuantity,
+    int scrapQuantity,
+  ) async {
     try {
       if (_currentSessionId != null && _sessionStartTime != null) {
         final endTime = DateTime.now();
         final workingDuration = endTime.difference(_sessionStartTime!);
 
-        // Get the current session
-        // For simplicity, we'll create a new session object with the end time
-        // In a real app, you might want to fetch the existing session from Firestore
+        // Fetch the existing session to preserve cableReference and quantityObjective
+        final existingSession = await FirebaseService.getSessionById(
+          _currentSessionId!,
+        );
+
+        if (existingSession == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to find existing session')),
+          );
+          return;
+        }
+
+        // Create updated session with preserved fields
         final updatedSession = Session(
           id: _currentSessionId!,
           operatorMatricule: widget.user.id,
-          technicianMatricule: '',
+          technicianMatricule: existingSession.technicianMatricule,
           machineReference: _currentlyWorkingMachineId ?? '',
-          issueTitle: 'Work on machine',
-          issueDescription: 'Operator ${widget.user.name} worked on machine',
+          issueTitle: existingSession.issueTitle,
+          issueDescription: existingSession.issueDescription,
           startTime: _sessionStartTime!,
           endTime: endTime,
           status: SessionStatus.closed,
+          cableReference:
+              existingSession.cableReference, // Preserve original value
+          quantityObjective:
+              existingSession.quantityObjective, // Preserve original value
+          producedQuantity: producedQuantity,
+          scrapQuantity: scrapQuantity,
         );
 
         // Update the session in Firestore

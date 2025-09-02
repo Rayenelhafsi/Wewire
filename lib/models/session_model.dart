@@ -12,6 +12,10 @@ class Session {
   final InterventionType interventionType;
   final String resolutionNotes;
   final List<String> chatMessages;
+  final String? cableReference;
+  final int? quantityObjective;
+  final int? producedQuantity;
+  final int? scrapQuantity;
 
   Session({
     required this.id,
@@ -27,56 +31,57 @@ class Session {
     this.interventionType = InterventionType.remote,
     this.resolutionNotes = '',
     this.chatMessages = const [],
+    this.cableReference,
+    this.quantityObjective,
+    this.producedQuantity,
+    this.scrapQuantity,
   });
 
   factory Session.fromJson(Map<String, dynamic> json) => Session(
-        id: json['id'] ?? '',
-        operatorMatricule: json['operatorMatricule'] ?? '',
-        technicianMatricule: json['technicianMatricule'] ?? '',
-        machineReference: json['machineReference'] ?? '',
-        issueTitle: json['issueTitle'] ?? '',
-        issueDescription: json['issueDescription'] ?? '',
-        keywords: List<String>.from(json['keywords'] ?? []),
-        startTime: DateTime.parse(json['startTime']),
-        endTime: json['endTime'] != null 
-            ? DateTime.parse(json['endTime']) 
-            : null,
-        status: SessionStatus.values.firstWhere(
-          (e) => e.toString() == 'SessionStatus.${json['status']}',
-        ),
-        interventionType: InterventionType.values.firstWhere(
-          (e) => e.toString() == 'InterventionType.${json['interventionType']}',
-        ),
-        resolutionNotes: json['resolutionNotes'] ?? '',
-        chatMessages: List<String>.from(json['chatMessages'] ?? []),
-      );
+    id: json['id'] ?? '',
+    operatorMatricule: json['operatorMatricule'] ?? '',
+    technicianMatricule: json['technicianMatricule'] ?? '',
+    machineReference: json['machineReference'] ?? '',
+    issueTitle: json['issueTitle'] ?? '',
+    issueDescription: json['issueDescription'] ?? '',
+    keywords: List<String>.from(json['keywords'] ?? []),
+    startTime: DateTime.parse(json['startTime']),
+    endTime: json['endTime'] != null ? DateTime.parse(json['endTime']) : null,
+    status: SessionStatus.values.firstWhere(
+      (e) => e.toString() == 'SessionStatus.${json['status']}',
+    ),
+    interventionType: InterventionType.values.firstWhere(
+      (e) => e.toString() == 'InterventionType.${json['interventionType']}',
+    ),
+    resolutionNotes: json['resolutionNotes'] ?? '',
+    chatMessages: List<String>.from(json['chatMessages'] ?? []),
+    cableReference: json['cableReference'],
+    quantityObjective: json['quantityObjective'],
+    producedQuantity: json['producedQuantity'],
+    scrapQuantity: json['scrapQuantity'],
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'operatorMatricule': operatorMatricule,
-        'technicianMatricule': technicianMatricule,
-        'machineReference': machineReference,
-        'issueTitle': issueTitle,
-        'issueDescription': issueDescription,
-        'keywords': keywords,
-        'startTime': startTime.toIso8601String(),
-        'endTime': endTime?.toIso8601String(),
-        'status': status.name,
-        'interventionType': interventionType.name,
-        'resolutionNotes': resolutionNotes,
-        'chatMessages': chatMessages,
-      };
+    'id': id,
+    'operatorMatricule': operatorMatricule,
+    'technicianMatricule': technicianMatricule,
+    'machineReference': machineReference,
+    'issueTitle': issueTitle,
+    'issueDescription': issueDescription,
+    'keywords': keywords,
+    'startTime': startTime.toIso8601String(),
+    'endTime': endTime?.toIso8601String(),
+    'status': status.name,
+    'interventionType': interventionType.name,
+    'resolutionNotes': resolutionNotes,
+    'chatMessages': chatMessages,
+    'cableReference': cableReference,
+    'quantityObjective': quantityObjective,
+    'producedQuantity': producedQuantity,
+    'scrapQuantity': scrapQuantity,
+  };
 }
 
-enum SessionStatus {
-  open,
-  inProgress,
-  resolved,
-  closed,
-  delayed,
-}
+enum SessionStatus { open, inProgress, resolved, closed, delayed }
 
-enum InterventionType {
-  remote,
-  inPerson,
-}
+enum InterventionType { remote, inPerson }

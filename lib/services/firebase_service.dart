@@ -310,6 +310,14 @@ class FirebaseService {
         .update(session.toJson());
   }
 
+  static Future<Session?> getSessionById(String sessionId) async {
+    final doc = await _firestore.collection('sessions').doc(sessionId).get();
+    if (doc.exists) {
+      return Session.fromJson(doc.data()!);
+    }
+    return null;
+  }
+
   static Stream<List<Session>> getActiveSessions() {
     return _firestore
         .collection('sessions')
