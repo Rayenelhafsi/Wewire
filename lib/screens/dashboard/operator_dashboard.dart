@@ -19,7 +19,10 @@ class OperatorDashboard extends StatefulWidget {
   State<OperatorDashboard> createState() => _OperatorDashboardState();
 }
 
-class _OperatorDashboardState extends State<OperatorDashboard> {
+class _OperatorDashboardState extends State<OperatorDashboard>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
   String? _currentlyWorkingMachineId;
   String? _currentSessionId;
   DateTime? _sessionStartTime;
@@ -34,12 +37,14 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _fetchLastScannedUidOnInit();
     _setupGlobalScanListener();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _globalScanSubscription?.cancel();
     _analyticsUpdateTimer?.cancel();
     super.dispose();
@@ -876,265 +881,280 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_rfidMismatchMessage != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.red.shade300,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
+    return Column(
+      children: [
+        if (_rfidMismatchMessage != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade300,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Color.fromARGB(255, 0, 0, 0),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _rfidMismatchMessage!,
+                    style: const TextStyle(
+                      color: Color.fromARGB(255, 0, 0, 0),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.close,
                     color: Color.fromARGB(255, 0, 0, 0),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _rfidMismatchMessage!,
-                      style: const TextStyle(
-                        color: Color.fromARGB(255, 0, 0, 0),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Color.fromARGB(255, 0, 0, 0),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _rfidMismatchMessage = null;
-                      });
-                    },
-                  ),
+                  onPressed: () {
+                    setState(() {
+                      _rfidMismatchMessage = null;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Last Scanned RFID Tag UID:',
+                style: TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                lastScannedUid ?? 'No scans yet',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Scaffold(
+            appBar: AppBar(
+              bottom: TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'My Machines'),
+                  Tab(text: 'Reported Issues'),
+                  Tab(text: 'My Chats'),
                 ],
               ),
             ),
-          const Text(
-            'Last Scanned RFID Tag UID:',
-            style: TextStyle(fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            lastScannedUid ?? 'No scans yet',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'My Machines',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<List<Machine>>(
-              stream: FirebaseService.getMachines(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final machines = snapshot.data ?? [];
-
-                if (machines.isEmpty) {
-                  return const Center(child: Text('No machines available'));
-                }
-
-                return ListView.builder(
-                  itemCount: machines.length,
-                  itemBuilder: (context, index) {
-                    final machine = machines[index];
-                    final isCurrentlyWorkingOnThisMachine =
-                        _currentlyWorkingMachineId == machine.id;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: _getStatusColor(machine.status),
-                          child: const Icon(Icons.build, color: Colors.white),
-                        ),
-                        title: Text(machine.name),
-                        subtitle: Text(
-                          '${machine.model} - ${machine.location}',
-                        ),
-                        trailing: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isCurrentlyWorkingOnThisMachine)
-                              TextButton(
-                                onPressed: _stopWork,
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                // My Machines tab
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: StreamBuilder<List<Machine>>(
+                    stream: FirebaseService.getMachines(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final machines = snapshot.data ?? [];
+                      if (machines.isEmpty) {
+                        return const Center(
+                          child: Text('No machines available'),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: machines.length,
+                        itemBuilder: (context, index) {
+                          final machine = machines[index];
+                          final isCurrentlyWorkingOnThisMachine =
+                              _currentlyWorkingMachineId == machine.id;
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: _getStatusColor(
+                                  machine.status,
                                 ),
-                                child: const Text(
-                                  'Stop Working',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              )
-                            else
-                              TextButton(
-                                onPressed: () => _startWork(machine),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: const Text(
-                                  'Start Working',
-                                  style: TextStyle(fontSize: 12),
+                                child: const Icon(
+                                  Icons.build,
+                                  color: Colors.white,
                                 ),
                               ),
-                            TextButton(
-                              onPressed: () => _reportIssue(machine),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              title: Text(machine.name),
+                              subtitle: Text(
+                                '${machine.model} - ${machine.location}',
                               ),
-                              child: const Text(
-                                'Report Issue',
-                                style: TextStyle(fontSize: 12),
+                              trailing: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isCurrentlyWorkingOnThisMachine)
+                                    TextButton(
+                                      onPressed: _stopWork,
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text(
+                                        'Stop Working',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    )
+                                  else
+                                    TextButton(
+                                      onPressed: () => _startWork(machine),
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text(
+                                        'Start Working',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  TextButton(
+                                    onPressed: () => _reportIssue(machine),
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Report Issue',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Reported Issues',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<List<Issue>>(
-              stream: FirebaseService.getAllIssues(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final allIssues = snapshot.data ?? [];
-                final reportedIssues = allIssues
-                    .where((issue) => issue.reporterId == widget.user.id)
-                    .toList();
-
-                if (reportedIssues.isEmpty) {
-                  return const Center(child: Text('No issues reported yet'));
-                }
-
-                return ListView.builder(
-                  itemCount: reportedIssues.length,
-                  itemBuilder: (context, index) {
-                    final issue = reportedIssues[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text(issue.title),
-                        subtitle: Text('Status: ${issue.status.name}'),
-                        trailing: Chip(
-                          label: Text(issue.priority.name.toUpperCase()),
-                          backgroundColor: _getPriorityColor(issue.priority),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'My Chats',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<List<PrivateChat>>(
-              stream: FirebaseService.getUserPrivateChats(widget.user.id),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final chats = snapshot.data ?? [];
-
-                if (chats.isEmpty) {
-                  return const Center(child: Text('No chats available'));
-                }
-
-                return ListView.builder(
-                  itemCount: chats.length,
-                  itemBuilder: (context, index) {
-                    final chat = chats[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        title: Text(
-                          chat.participant1Name == widget.user.name
-                              ? chat.participant2Name
-                              : chat.participant1Name,
-                        ),
-                        subtitle: Text(
-                          'Last message at: ${DateFormat.yMMMd().add_jm().format(chat.lastMessageAt.toDate())}',
-                        ),
-                        trailing: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ChatScreen(
-                                  chatId: chat.id,
-                                  isPrivateChat: true,
-                                  title:
-                                      chat.participant1Name == widget.user.name
-                                      ? chat.participant2Name
-                                      : chat.participant1Name,
-                                  user: widget.user,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                // Reported Issues tab
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: StreamBuilder<List<Issue>>(
+                    stream: FirebaseService.getAllIssues(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final allIssues = snapshot.data ?? [];
+                      final reportedIssues = allIssues
+                          .where((issue) => issue.reporterId == widget.user.id)
+                          .toList();
+                      if (reportedIssues.isEmpty) {
+                        return const Center(
+                          child: Text('No issues reported yet'),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: reportedIssues.length,
+                        itemBuilder: (context, index) {
+                          final issue = reportedIssues[index];
+                          return Card(
+                            child: ListTile(
+                              title: Text(issue.title),
+                              subtitle: Text('Status: ${issue.status.name}'),
+                              trailing: Chip(
+                                label: Text(issue.priority.name.toUpperCase()),
+                                backgroundColor: _getPriorityColor(
+                                  issue.priority,
                                 ),
                               ),
-                            );
-                          },
-                          child: const Text('Open Chat'),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                // My Chats tab
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: StreamBuilder<List<PrivateChat>>(
+                    stream: FirebaseService.getUserPrivateChats(widget.user.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final chats = snapshot.data ?? [];
+                      if (chats.isEmpty) {
+                        return const Center(child: Text('No chats available'));
+                      }
+                      return ListView.builder(
+                        itemCount: chats.length,
+                        itemBuilder: (context, index) {
+                          final chat = chats[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              title: Text(
+                                chat.participant1Name == widget.user.name
+                                    ? chat.participant2Name
+                                    : chat.participant1Name,
+                              ),
+                              subtitle: Text(
+                                'Last message at: ${DateFormat.yMMMd().add_jm().format(chat.lastMessageAt.toDate())}',
+                              ),
+                              trailing: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatScreen(
+                                        chatId: chat.id,
+                                        isPrivateChat: true,
+                                        title:
+                                            chat.participant1Name ==
+                                                widget.user.name
+                                            ? chat.participant2Name
+                                            : chat.participant1Name,
+                                        user: widget.user,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Open Chat'),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
