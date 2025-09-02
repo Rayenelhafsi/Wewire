@@ -329,6 +329,48 @@ class FirebaseService {
         );
   }
 
+  static Future<List<Session>> getActiveSessionsByOperator(
+    String operatorMatricule,
+  ) async {
+    final query = await _firestore
+        .collection('sessions')
+        .where('operatorMatricule', isEqualTo: operatorMatricule)
+        .where('status', whereIn: ['open', 'inProgress'])
+        .get();
+
+    return query.docs.map((doc) => Session.fromJson(doc.data())).toList();
+  }
+
+  /// Closes all active sessions (status open or inProgress) for the given operator matricule
+  static Future<void> closeActiveSessionsForOperator(
+    String operatorMatricule,
+  ) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('sessions')
+          .where('operatorMatricule', isEqualTo: operatorMatricule)
+          .where('status', whereIn: ['open', 'inProgress'])
+          .get();
+
+      final batch = _firestore.batch();
+      final now = DateTime.now();
+
+      for (final doc in querySnapshot.docs) {
+        batch.update(doc.reference, {
+          'status': 'closed',
+          'endTime': now.toIso8601String(),
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print(
+        'Error closing active sessions for operator $operatorMatricule: $e',
+      );
+      rethrow;
+    }
+  }
+
   static Stream<List<Session>> getSessionHistory() {
     return _firestore
         .collection('sessions')

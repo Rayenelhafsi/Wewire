@@ -108,34 +108,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: Text('Welcome, ${_user!.name}'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              try {
-                // Sign out from Firebase Auth (for admins)
-                await FirebaseAuth.instance.signOut();
-
-                // Clear session storage (for operators/technicians)
-                await SessionService.clearSession();
-
-                // Add a small delay to ensure signOut and clearSession complete
-                await Future.delayed(const Duration(milliseconds: 300));
-
-                Navigator.pushReplacementNamed(context, '/');
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error signing out: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-          ),
+          IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
       ),
       body: _buildDashboardForRole(_user!),
     );
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      // Check for active sessions first
+      final currentUser = await SessionService.getCurrentUser();
+      if (currentUser != null) {
+        final activeSessions =
+            await FirebaseService.getActiveSessionsByOperator(currentUser.id);
+
+        if (activeSessions.isNotEmpty) {
+          // Show alert dialog if user has active sessions
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Active Session Detected'),
+                content: const Text(
+                  'You have an active session and cannot log out until you stop working. '
+                  'Please complete or stop your current work session first.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              );
+            },
+          );
+          return; // Don't proceed with logout
+        }
+      }
+
+      // No active sessions, proceed with logout
+      // Sign out from Firebase Auth (for admins)
+      await FirebaseAuth.instance.signOut();
+
+      // Clear session storage (for operators/technicians)
+      await SessionService.clearSession();
+
+      // Close any active sessions for the current user before logout (as backup)
+      if (currentUser != null) {
+        await FirebaseService.closeActiveSessionsForOperator(currentUser.id);
+      }
+
+      // Add a small delay to ensure signOut and clearSession complete
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      Navigator.pushReplacementNamed(context, '/');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error signing out: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildDashboardForRole(app_models.User user) {
