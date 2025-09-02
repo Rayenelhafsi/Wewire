@@ -358,99 +358,210 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<TimePeriod>(
-                    value: _selectedTimePeriod,
-                    decoration: const InputDecoration(labelText: 'Time Period'),
-                    items: TimePeriod.values.map((period) {
-                      return DropdownMenuItem<TimePeriod>(
-                        value: period,
-                        child: Text(period.name.toUpperCase()),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedTimePeriod = value!;
-                      });
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Time Period'),
+                      DropdownButtonFormField<TimePeriod>(
+                        value: _selectedTimePeriod,
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        isDense: true,
+                        items: TimePeriod.values.map((period) {
+                          return DropdownMenuItem<TimePeriod>(
+                            value: period,
+                            child: Text(period.name.toUpperCase()),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedTimePeriod = value!;
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedMachineId,
-                    decoration: const InputDecoration(labelText: 'Machine'),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Machines'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Machine'),
+                      DropdownButtonFormField<String>(
+                        value: _selectedMachineId,
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        isDense: true,
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All Machines'),
+                          ),
+                          ..._machines.map((machine) {
+                            return DropdownMenuItem<String>(
+                              value: machine.id,
+                              child: Text(machine.name),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedMachineId = value;
+                          });
+                        },
                       ),
-                      ..._machines.map((machine) {
-                        return DropdownMenuItem<String>(
-                          value: machine.id,
-                          child: Text(machine.name),
-                        );
-                      }).toList(),
                     ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedMachineId = value;
-                      });
-                    },
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedOperatorId,
-                    decoration: const InputDecoration(labelText: 'Operator'),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Operators'),
-                      ),
-                      ..._operators.map((operator) {
-                        return DropdownMenuItem<String>(
-                          value: operator.matricule,
-                          child: Text(operator.name),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedOperatorId = value;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedTechnicianId,
-                    decoration: const InputDecoration(labelText: 'Technician'),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Technicians'),
-                      ),
-                      ..._technicians.map((technician) {
-                        return DropdownMenuItem<String>(
-                          value: technician.matricule,
-                          child: Text(technician.name),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedTechnicianId = value;
-                      });
-                    },
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 400;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    isNarrow
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Operator'),
+                              DropdownButtonFormField<String>(
+                                value: _selectedOperatorId,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 8.0,
+                                  ),
+                                ),
+                                isDense: true,
+                                items: [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('All Operators'),
+                                  ),
+                                  ..._operators.map((operator) {
+                                    return DropdownMenuItem<String>(
+                                      value: operator.matricule,
+                                      child: Text(operator.name),
+                                    );
+                                  }).toList(),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedOperatorId = value;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              const Text('Technician'),
+                              DropdownButtonFormField<String>(
+                                value: _selectedTechnicianId,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 8.0,
+                                  ),
+                                ),
+                                isDense: true,
+                                items: [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('All Technicians'),
+                                  ),
+                                  ..._technicians.map((technician) {
+                                    return DropdownMenuItem<String>(
+                                      value: technician.matricule,
+                                      child: Text(technician.name),
+                                    );
+                                  }).toList(),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedTechnicianId = value;
+                                  });
+                                },
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Operator'),
+                                    DropdownButtonFormField<String>(
+                                      value: _selectedOperatorId,
+                                      decoration: const InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 8.0,
+                                        ),
+                                      ),
+                                      isDense: true,
+                                      items: [
+                                        const DropdownMenuItem(
+                                          value: null,
+                                          child: Text('All Operators'),
+                                        ),
+                                        ..._operators.map((operator) {
+                                          return DropdownMenuItem<String>(
+                                            value: operator.matricule,
+                                            child: Text(operator.name),
+                                          );
+                                        }).toList(),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedOperatorId = value;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Technician'),
+                                    DropdownButtonFormField<String>(
+                                      value: _selectedTechnicianId,
+                                      decoration: const InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 8.0,
+                                        ),
+                                      ),
+                                      isDense: true,
+                                      items: [
+                                        const DropdownMenuItem(
+                                          value: null,
+                                          child: Text('All Technicians'),
+                                        ),
+                                        ..._technicians.map((technician) {
+                                          return DropdownMenuItem<String>(
+                                            value: technician.matricule,
+                                            child: Text(technician.name),
+                                          );
+                                        }).toList(),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedTechnicianId = value;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                  ],
+                );
+              },
             ),
           ],
         ),
