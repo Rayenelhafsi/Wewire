@@ -291,7 +291,7 @@ class _WorkHistoryManagementState extends State<WorkHistoryManagement> {
                     }
                   }
 
-                  print(
+                  debugPrint(
                     'UI: Calling updateDailyStoppedTime with machineId: ${machineController.text}, duration: $stoppedDuration',
                   );
                   await FirebaseService.updateDailyStoppedTime(
@@ -511,7 +511,7 @@ class _WorkHistoryManagementState extends State<WorkHistoryManagement> {
                   }
                 }
 
-                print(
+                debugPrint(
                   'UI: Calling updateWorkingTime with machineId: ${machineController.text}, duration: $workingDuration',
                 );
                 await FirebaseService.updateWorkingTime(

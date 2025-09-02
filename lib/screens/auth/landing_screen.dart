@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
-import 'matricule_login_screen.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -17,18 +15,11 @@ class LandingScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.build,
-                  size: 80,
-                  color: Colors.blue,
-                ),
+                const Icon(Icons.build, size: 80, color: Colors.blue),
                 const SizedBox(height: 32),
                 const Text(
                   'Maintenance System',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),

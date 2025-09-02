@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'dart:io' show Platform;
 import 'session_service.dart';
 import 'firebase_service.dart';
@@ -17,15 +17,15 @@ class NotificationService {
 
     // Validate token before storing
     if (token.isEmpty || token == 'null') {
-      print('Warning: Attempted to store invalid FCM token: "$token"');
+      debugPrint('Warning: Attempted to store invalid FCM token: "$token"');
       return;
     }
 
     if (user != null) {
       await FirebaseService.storeFCMToken(user.id, token);
-      print('FCM token stored for user ${user.id}');
+      debugPrint('FCM token stored for user ${user.id}');
     } else {
-      print(
+      debugPrint(
         'Warning: No user session found to store FCM token. Token: "$token"',
       );
     }
@@ -35,21 +35,21 @@ class NotificationService {
     try {
       // Check if Firebase is already initialized
       if (Firebase.apps.isEmpty) {
-        print("Initializing Firebase...");
+        debugPrint("Initializing Firebase...");
         await Firebase.initializeApp();
       } else {
-        print("Firebase is already initialized.");
+        debugPrint("Firebase is already initialized.");
       }
 
       // Request platform-specific notification permissions
       if (!kIsWeb && Platform.isAndroid) {
-        print(
+        debugPrint(
           'Android device detected, requesting Android-specific notification permissions...',
         );
         await _requestAndroidNotificationPermission();
       } else {
         // For iOS and web, use Firebase's requestPermission
-        print(
+        debugPrint(
           'iOS/Web device detected, requesting standard notification permissions...',
         );
         final settings = await _firebaseMessaging.requestPermission(
@@ -57,7 +57,7 @@ class NotificationService {
           badge: true,
           sound: true,
         );
-        print(
+        debugPrint(
           'Notification permission status: ${settings.authorizationStatus}',
         );
       }
@@ -87,7 +87,7 @@ class NotificationService {
 
       // Get the FCM token for this device and store it
       final String? token = await _firebaseMessaging.getToken();
-      print('FCM Token: $token');
+      debugPrint('FCM Token: $token');
 
       // Store the token for notifications
       if (token != null) {
@@ -96,11 +96,11 @@ class NotificationService {
 
       // Listen for token refresh
       _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-        print('FCM token refreshed: $newToken');
+        debugPrint('FCM token refreshed: $newToken');
         await _storeFCMToken(newToken);
       });
     } catch (e) {
-      print('Error initializing notification service: $e');
+      debugPrint('Error initializing notification service: $e');
       // Don't rethrow the error to prevent app from crashing
     }
   }
@@ -147,18 +147,18 @@ class NotificationService {
   static Future<void> subscribeToTopic(String topic) async {
     try {
       // This method is not supported on web, so we'll just log it
-      print('Would subscribe to topic: $topic (not supported on web)');
+      debugPrint('Would subscribe to topic: $topic (not supported on web)');
     } catch (e) {
-      print('Error subscribing to topic: $e');
+      debugPrint('Error subscribing to topic: $e');
     }
   }
 
   static Future<void> unsubscribeFromTopic(String topic) async {
     try {
       // This method is not supported on web, so we'll just log it
-      print('Would unsubscribe from topic: $topic (not supported on web)');
+      debugPrint('Would unsubscribe from topic: $topic (not supported on web)');
     } catch (e) {
-      print('Error unsubscribing from topic: $e');
+      debugPrint('Error unsubscribing from topic: $e');
     }
   }
 
@@ -167,19 +167,19 @@ class NotificationService {
     try {
       // Check if we're on Android
       if (Platform.isAndroid) {
-        print('Requesting Android notification permission...');
+        debugPrint('Requesting Android notification permission...');
         // Request Firebase permissions for notifications
         final settings = await _firebaseMessaging.requestPermission(
           alert: true,
           badge: true,
           sound: true,
         );
-        print(
+        debugPrint(
           'Android notification permission status: ${settings.authorizationStatus}',
         );
       }
     } catch (e) {
-      print('Error requesting Android notification permission: $e');
+      debugPrint('Error requesting Android notification permission: $e');
     }
   }
 

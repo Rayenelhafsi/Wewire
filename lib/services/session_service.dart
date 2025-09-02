@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import '../models/user_model.dart' as app_models;
 import 'firebase_service.dart';
 
@@ -30,7 +31,7 @@ class SessionService {
       try {
         return app_models.User.fromJsonString(userJson);
       } catch (e) {
-        print('Error parsing user from session: $e');
+        debugPrint('Error parsing user from session: $e');
         return null;
       }
     }
@@ -69,7 +70,7 @@ class SessionService {
 
     // Validate token before storing
     if (token.isEmpty || token == 'null') {
-      print('Warning: Attempted to store invalid FCM token: "$token"');
+      debugPrint('Warning: Attempted to store invalid FCM token: "$token"');
       return;
     }
 
@@ -83,7 +84,7 @@ class SessionService {
     if (userMatricule == null ||
         userMatricule.isEmpty ||
         userMatricule == 'null') {
-      print(
+      debugPrint(
         'Warning: Cannot store FCM token - no valid user matricule found. User: $user, Matricule: $matricule',
       );
       return;
@@ -92,7 +93,7 @@ class SessionService {
     try {
       await FirebaseService.storeFCMToken(userMatricule, token);
     } catch (e) {
-      print('Error storing FCM token in Firestore: $e');
+      debugPrint('Error storing FCM token in Firestore: $e');
       // Don't rethrow to prevent app crashes, but log the error
     }
   }

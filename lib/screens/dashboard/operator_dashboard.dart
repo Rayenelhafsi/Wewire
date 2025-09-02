@@ -75,7 +75,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
         }
       }
     } catch (e) {
-      print('Error fetching last scanned UID: $e');
+      debugPrint('Error fetching last scanned UID: $e');
     }
   }
 
@@ -88,7 +88,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
         // Set up listeners for each machine's RFID scans
         for (final machine in machines) {
           FirebaseService.listenForRfidTagScans(machine.id).listen((tagUid) {
-            print(
+            debugPrint(
               'Global scan listener: RFID tag detected: $tagUid for machine: ${machine.id}',
             );
             // Update the global lastScannedUid whenever any scan occurs
@@ -102,7 +102,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
   }
 
   void _startWork(Machine machine) {
-    print(
+    debugPrint(
       'Start Work button clicked for machine: ${machine.name}',
     ); // Debug print
     // Show confirmation dialog
@@ -160,12 +160,12 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
               // Listen for RFID tag scan from Realtime Database
               final machineId = machine.id;
               final operatorMatricule = widget.user.id;
-              print(
+              debugPrint(
                 'Starting RFID scan for machine: $machineId at $scanStartTime',
               ); // Debug print
               if (machineId.isEmpty) {
                 // Cannot proceed without machine id
-                print('Error: Machine id is empty'); // Debug print
+                debugPrint('Error: Machine id is empty'); // Debug print
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Machine id not found.')),
@@ -174,8 +174,10 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                 return;
               }
 
-              print('Setting up RFID stream subscription...'); // Debug print
-              print(
+              debugPrint(
+                'Setting up RFID stream subscription...',
+              ); // Debug print
+              debugPrint(
                 'About to call listenForRfidTagScans with machineId: $machineId',
               ); // Debug print
 
@@ -187,11 +189,11 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
               subscription = FirebaseService.listenForRfidTagScans(machineId).listen((
                 tagUid,
               ) async {
-                print('RFID tag detected: $tagUid'); // Debug print
+                debugPrint('RFID tag detected: $tagUid'); // Debug print
 
                 // Only start processing scans after a brief delay to avoid cached data
                 if (!isListeningActive) {
-                  print(
+                  debugPrint(
                     'Ignoring initial/cached RFID scan: $tagUid',
                   ); // Debug print
                   return;
@@ -199,7 +201,9 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
 
                 // Only process the scan if we haven't processed one in this session yet
                 if (currentScanSessionUid == null) {
-                  print('Processing new RFID scan: $tagUid'); // Debug print
+                  debugPrint(
+                    'Processing new RFID scan: $tagUid',
+                  ); // Debug print
 
                   // Check if operator has RFID tag assigned
                   final operatorDoc = await FirebaseService.getOperator(
@@ -213,7 +217,7 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                         await FirebaseService.getOperatorByRfidTag(tagUid);
                     if (existingOwner != null &&
                         existingOwner != operatorMatricule) {
-                      print(
+                      debugPrint(
                         'RFID tag $tagUid is already owned by operator $existingOwner',
                       );
                       if (mounted) {
@@ -734,6 +738,45 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_rfidMismatchMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color.fromARGB(255, 0, 0, 0),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _rfidMismatchMessage!,
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 0, 0, 0),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Color.fromARGB(255, 0, 0, 0),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _rfidMismatchMessage = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
           const Text(
             'Last Scanned RFID Tag UID:',
             style: TextStyle(fontSize: 18),
@@ -784,23 +827,48 @@ class _OperatorDashboardState extends State<OperatorDashboard> {
                         subtitle: Text(
                           '${machine.model} - ${machine.location}',
                         ),
-                        trailing: Row(
+                        trailing: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (isCurrentlyWorkingOnThisMachine)
-                              ElevatedButton(
+                              TextButton(
                                 onPressed: _stopWork,
-                                child: const Text('Stop Working'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Stop Working',
+                                  style: TextStyle(fontSize: 12),
+                                ),
                               )
                             else
-                              ElevatedButton(
+                              TextButton(
                                 onPressed: () => _startWork(machine),
-                                child: const Text('Start Working'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Start Working',
+                                  style: TextStyle(fontSize: 12),
+                                ),
                               ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
+                            TextButton(
                               onPressed: () => _reportIssue(machine),
-                              child: const Text('Report Issue'),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'Report Issue',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                           ],
                         ),

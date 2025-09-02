@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/machine_analytics_model.dart';
 import '../services/firebase_service.dart';
 
@@ -20,7 +21,7 @@ class TestFirestoreWrite extends StatelessWidget {
     );
 
     await FirebaseService.saveMachineAnalytics(sampleAnalytics);
-    print('Test saveMachineAnalytics completed');
+    debugPrint('Test saveMachineAnalytics completed');
   }
 
   @override

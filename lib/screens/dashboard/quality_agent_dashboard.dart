@@ -71,7 +71,9 @@ class _QualityAgentDashboardState extends State<QualityAgentDashboard> {
               children: [
                 _buildIssuesList(_allIssues),
                 _buildIssuesList(
-                  _allIssues.where((i) => i.status != IssueStatus.reported).toList(),
+                  _allIssues
+                      .where((i) => i.status != IssueStatus.reported)
+                      .toList(),
                 ),
               ],
             ),
@@ -123,7 +125,9 @@ class _QualityAgentDashboardState extends State<QualityAgentDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Description: ${issue.description}'),
+                    Text(
+                      'Description: ${issue.description ?? 'No description provided'}',
+                    ),
                     const SizedBox(height: 8),
                     Text('Priority: ${issue.priority.name.toUpperCase()}'),
                     const SizedBox(height: 8),
@@ -132,11 +136,7 @@ class _QualityAgentDashboardState extends State<QualityAgentDashboard> {
                     ElevatedButton(
                       onPressed: () {
                         // Navigate to chat screen
-                        Navigator.pushNamed(
-                          context,
-                          '/chat',
-                          arguments: issue,
-                        );
+                        Navigator.pushNamed(context, '/chat', arguments: issue);
                       },
                       child: const Text('Start Chat'),
                     ),

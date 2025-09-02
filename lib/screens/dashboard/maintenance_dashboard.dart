@@ -289,7 +289,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Description: ${issue.description}'),
+                    Text(
+                      'Description: ${issue.description ?? 'No description provided'}',
+                    ),
                     const SizedBox(height: 8),
                     Text('Priority: ${issue.priority.name.toUpperCase()}'),
                     const SizedBox(height: 8),

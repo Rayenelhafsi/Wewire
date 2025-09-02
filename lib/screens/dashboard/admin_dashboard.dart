@@ -139,7 +139,8 @@ class _IssuesManagementState extends State<IssuesManagement> {
                             Text('ID: ${issue.id}'),
                             Text('Status: ${issue.status.name}'),
                             Text('Created: ${_formatDate(issue.createdAt)}'),
-                            if (issue.description.isNotEmpty)
+                            if (issue.description != null &&
+                                issue.description!.isNotEmpty)
                               Text('Description: ${issue.description}'),
                           ],
                         ),

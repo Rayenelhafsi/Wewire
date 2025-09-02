@@ -5,7 +5,7 @@ import '../services/firebase_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  print('Testing Firestore analytics write...');
+  debugPrint('Testing Firestore analytics write...');
 
   final sampleAnalytics = MachineAnalytics(
     machineId: 'TEST001',
@@ -22,8 +22,8 @@ void main() async {
 
   try {
     await FirebaseService.saveMachineAnalytics(sampleAnalytics);
-    print('✓ Test saveMachineAnalytics completed successfully');
+    debugPrint('✓ Test saveMachineAnalytics completed successfully');
   } catch (e) {
-    print('✗ Error saving analytics: $e');
+    debugPrint('✗ Error saving analytics: $e');
   }
 }

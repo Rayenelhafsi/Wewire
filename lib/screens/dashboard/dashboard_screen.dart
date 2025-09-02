@@ -66,7 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return;
         }
       } catch (e) {
-        print('Error loading admin data: $e');
+        debugPrint('Error loading admin data: $e');
       }
     }
 
@@ -81,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return;
       }
     } catch (e) {
-      print('Error loading session data: $e');
+      debugPrint('Error loading session data: $e');
     }
 
     // If no user found anywhere, redirect to login

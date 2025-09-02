@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart';
+import 'package:logging/logging.dart';
 import '../models/operator_model.dart';
 import '../models/technician_model.dart';
 import '../models/session_model.dart';
@@ -18,6 +18,7 @@ import '../models/chat_message_model.dart';
 import '../models/machine_analytics_model.dart';
 
 class FirebaseService {
+  static final Logger _logger = Logger('FirebaseService');
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseDatabase _realtimeDatabase =
       FirebaseDatabase.instanceFor(
@@ -754,7 +755,11 @@ class FirebaseService {
         body: jsonEncode({
           'message': {
             'token': fcmToken,
-            'notification': {'title': title, 'body': body, 'sound': 'default'},
+            'notification': {
+              'title': title ?? 'Notification',
+              'body': body ?? 'You have a new notification',
+              'sound': 'default',
+            },
             'data': data ?? {},
           },
         }),
@@ -784,9 +789,16 @@ class FirebaseService {
   }
 
   // Store FCM token for a user (to be called when user logs in)
-  static Future<void> storeFCMToken(String matricule, String fcmToken) async {
+  static Future<void> storeFCMToken(String? matricule, String? fcmToken) async {
     try {
       // Validate inputs to prevent null values being sent to Firestore
+      if (matricule == null || fcmToken == null) {
+        print(
+          'Warning: Attempted to store FCM token with null matricule or token. Matricule: "$matricule", Token: "$fcmToken"',
+        );
+        return;
+      }
+
       if (matricule.isEmpty || fcmToken.isEmpty) {
         print(
           'Warning: Attempted to store FCM token with empty matricule or token. Matricule: "$matricule", Token: "$fcmToken"',
@@ -808,8 +820,7 @@ class FirebaseService {
       print('FCM token stored for user $matricule');
     } catch (e) {
       print('Error storing FCM token for user $matricule: $e');
-      // Re-throw the error to provide better debugging context
-      throw Exception('Failed to store FCM token for user $matricule: $e');
+      // Don't re-throw the error to prevent app crashes during initialization
     }
   }
 
@@ -837,24 +848,36 @@ class FirebaseService {
         .collection('user_tokens')
         .get();
     final technicianTokens = techniciansSnapshot.docs
-        .map((doc) => doc.data()['fcmToken'] as String)
+        .map((doc) => doc.data()?['fcmToken'] as String?)
+        .where((token) => token != null && token.isNotEmpty)
+        .cast<String>()
         .toList();
 
-    for (final token in technicianTokens) {
-      final response = await http.post(
-        Uri.parse('https://wewire.vercel.app/api/sendNotification'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': token,
-          'title': 'New Maintenance Issue',
-          'body': 'A new issue has been reported: ${issue.description}',
-        }),
-      );
+    if (technicianTokens.isEmpty) {
+      print('No valid FCM tokens found for technicians');
+      return;
+    }
 
-      if (response.statusCode == 200) {
-        print('Notification sent successfully to $token');
-      } else {
-        print('Failed to send notification: ${response.body}');
+    for (final token in technicianTokens) {
+      try {
+        final response = await http.post(
+          Uri.parse('https://wewire.vercel.app/api/sendNotification'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'token': token,
+            'title': 'New Maintenance Issue',
+            'body':
+                'A new issue has been reported: ${issue.description ?? 'No description provided'}',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          print('Notification sent successfully to $token');
+        } else {
+          print('Failed to send notification: ${response.body}');
+        }
+      } catch (e) {
+        print('Error sending notification to token $token: $e');
       }
     }
   }
