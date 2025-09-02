@@ -51,33 +51,92 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Admin Dashboard'),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+      ),
       body: _widgetOptions.elementAt(_selectedIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.engineering),
-            label: 'Technicians',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Operators'),
-          BottomNavigationBarItem(icon: Icon(Icons.build), label: 'Machines'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Issues'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.work),
-            label: 'Work Requests',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Work History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Analytics',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Colors.blue),
+              child: Text(
+                'Admin Panel',
+                style: const TextStyle(color: Colors.white, fontSize: 24),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.engineering),
+              title: const Text('Technicians'),
+              selected: _selectedIndex == 0,
+              onTap: () {
+                _onItemTapped(0);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Operators'),
+              selected: _selectedIndex == 1,
+              onTap: () {
+                _onItemTapped(1);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.build),
+              title: const Text('Machines'),
+              selected: _selectedIndex == 2,
+              onTap: () {
+                _onItemTapped(2);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Issues'),
+              selected: _selectedIndex == 3,
+              onTap: () {
+                _onItemTapped(3);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.work),
+              title: const Text('Work Requests'),
+              selected: _selectedIndex == 4,
+              onTap: () {
+                _onItemTapped(4);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Work History'),
+              selected: _selectedIndex == 5,
+              onTap: () {
+                _onItemTapped(5);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Analytics'),
+              selected: _selectedIndex == 6,
+              onTap: () {
+                _onItemTapped(6);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
