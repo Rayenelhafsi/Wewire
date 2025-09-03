@@ -151,6 +151,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         return DateTime(now.year, now.month, 1);
       case TimePeriod.year:
         return DateTime(now.year, 1, 1);
+      case TimePeriod.all:
+      default:
+        return DateTime(now.year, now.month, now.day); // Fallback
     }
   }
 
@@ -163,58 +166,75 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     DateTime? startDate;
     DateTime? endDate;
 
-    switch (_selectedTimePeriod) {
-      case TimePeriod.day:
-        if (_selectedDay != null) {
-          startDate = DateTime(
-            _selectedDay!.year,
-            _selectedDay!.month,
-            _selectedDay!.day,
-          );
-          endDate = startDate.add(const Duration(days: 1));
-        }
-        break;
-      case TimePeriod.week:
-        if (_weekStartDate != null && _weekEndDate != null) {
-          startDate = DateTime(
-            _weekStartDate!.year,
-            _weekStartDate!.month,
-            _weekStartDate!.day,
-          );
-          endDate = DateTime(
-            _weekEndDate!.year,
-            _weekEndDate!.month,
-            _weekEndDate!.day,
-          ).add(const Duration(days: 1));
-        }
-        break;
-      case TimePeriod.month:
-        if (_selectedMonth != null) {
-          startDate = DateTime(_selectedMonth!.year, _selectedMonth!.month, 1);
-          endDate = DateTime(
-            _selectedMonth!.year,
-            _selectedMonth!.month + 1,
-            1,
-          );
-        }
-        break;
-      case TimePeriod.year:
-        if (_selectedYear != null) {
-          startDate = DateTime(_selectedYear!, 1, 1);
-          endDate = DateTime(_selectedYear! + 1, 1, 1);
-        }
-        break;
-    }
+    if (_selectedTimePeriod == TimePeriod.all) {
+      startDate = null;
+      endDate = null;
+    } else {
+      switch (_selectedTimePeriod) {
+        case TimePeriod.day:
+          if (_selectedDay != null) {
+            startDate = DateTime(
+              _selectedDay!.year,
+              _selectedDay!.month,
+              _selectedDay!.day,
+            );
+            endDate = startDate.add(const Duration(days: 1));
+          }
+          break;
+        case TimePeriod.week:
+          if (_weekStartDate != null && _weekEndDate != null) {
+            startDate = DateTime(
+              _weekStartDate!.year,
+              _weekStartDate!.month,
+              _weekStartDate!.day,
+            );
+            endDate = DateTime(
+              _weekEndDate!.year,
+              _weekEndDate!.month,
+              _weekEndDate!.day,
+            ).add(const Duration(days: 1));
+          }
+          break;
+        case TimePeriod.month:
+          if (_selectedMonth != null) {
+            startDate = DateTime(
+              _selectedMonth!.year,
+              _selectedMonth!.month,
+              1,
+            );
+            endDate = DateTime(
+              _selectedMonth!.year,
+              _selectedMonth!.month + 1,
+              1,
+            );
+          }
+          break;
+        case TimePeriod.year:
+          if (_selectedYear != null) {
+            startDate = DateTime(_selectedYear!, 1, 1);
+            endDate = DateTime(_selectedYear! + 1, 1, 1);
+          }
+          break;
+        case TimePeriod.all:
+        default:
+          // Already handled above or default
+          break;
+      }
 
-    // Fallback to default start date if no specific input provided
-    startDate ??= _getStartDateForPeriod(_selectedTimePeriod);
-    endDate ??= DateTime.now().add(const Duration(days: 1));
+      // Fallback to default start date if no specific input provided
+      startDate ??= _getStartDateForPeriod(_selectedTimePeriod);
+      endDate ??= DateTime.now().add(const Duration(days: 1));
+    }
 
     final filteredSessions = _sessions.where((session) {
       final sessionStart = session.startTime;
-      return sessionStart.isAfter(startDate!) &&
-          sessionStart.isBefore(endDate!) &&
-          (_selectedOperatorId == null ||
+      if (startDate != null && endDate != null) {
+        if (!(sessionStart.isAfter(startDate) &&
+            sessionStart.isBefore(endDate))) {
+          return false;
+        }
+      }
+      return (_selectedOperatorId == null ||
               session.operatorMatricule == _selectedOperatorId) &&
           (_selectedMachineId == null ||
               session.machineReference == _selectedMachineId);
@@ -283,6 +303,14 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           startDate = DateTime(_selectedYear!, 1, 1);
           endDate = DateTime(_selectedYear! + 1, 1, 1);
         }
+        break;
+      case TimePeriod.all:
+        startDate = null;
+        endDate = null;
+        break;
+      default:
+        startDate = null;
+        endDate = null;
         break;
     }
 
@@ -385,6 +413,46 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildFiltersSection() {
+    // Helper to get unique operators by matricule
+    List<Operator> uniqueOperators = [];
+    final operatorMatricules = <String>{};
+    for (var op in _operators) {
+      if (!operatorMatricules.contains(op.matricule)) {
+        operatorMatricules.add(op.matricule);
+        uniqueOperators.add(op);
+      }
+    }
+
+    // Helper to get unique technicians by matricule
+    List<Technician> uniqueTechnicians = [];
+    final technicianMatricules = <String>{};
+    for (var tech in _technicians) {
+      if (!technicianMatricules.contains(tech.matricule)) {
+        technicianMatricules.add(tech.matricule);
+        uniqueTechnicians.add(tech);
+      }
+    }
+
+    // Reset selectedOperatorId if not in uniqueOperators
+    if (_selectedOperatorId != null &&
+        !operatorMatricules.contains(_selectedOperatorId)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedOperatorId = null;
+        });
+      });
+    }
+
+    // Reset selectedTechnicianId if not in uniqueTechnicians
+    if (_selectedTechnicianId != null &&
+        !technicianMatricules.contains(_selectedTechnicianId)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedTechnicianId = null;
+        });
+      });
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -443,7 +511,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                         ),
                         isDense: true,
                         items: [
-                          const DropdownMenuItem(
+                          DropdownMenuItem<String>(
                             value: null,
                             child: Text('All Machines'),
                           ),
@@ -552,11 +620,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                 ),
                                 isDense: true,
                                 items: [
-                                  const DropdownMenuItem(
+                                  DropdownMenuItem<String>(
                                     value: null,
                                     child: Text('All Operators'),
                                   ),
-                                  ..._operators.map((operator) {
+                                  ...uniqueOperators.map((operator) {
                                     return DropdownMenuItem<String>(
                                       value: operator.matricule,
                                       child: Text(operator.name),
@@ -580,11 +648,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                 ),
                                 isDense: true,
                                 items: [
-                                  const DropdownMenuItem(
+                                  DropdownMenuItem<String>(
                                     value: null,
                                     child: Text('All Technicians'),
                                   ),
-                                  ..._technicians.map((technician) {
+                                  ...uniqueTechnicians.map((technician) {
                                     return DropdownMenuItem<String>(
                                       value: technician.matricule,
                                       child: Text(technician.name),
@@ -615,11 +683,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                       ),
                                       isDense: true,
                                       items: [
-                                        const DropdownMenuItem(
+                                        DropdownMenuItem<String>(
                                           value: null,
                                           child: Text('All Operators'),
                                         ),
-                                        ..._operators.map((operator) {
+                                        ...uniqueOperators.map((operator) {
                                           return DropdownMenuItem<String>(
                                             value: operator.matricule,
                                             child: Text(operator.name),
@@ -650,11 +718,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                       ),
                                       isDense: true,
                                       items: [
-                                        const DropdownMenuItem(
+                                        DropdownMenuItem<String>(
                                           value: null,
                                           child: Text('All Technicians'),
                                         ),
-                                        ..._technicians.map((technician) {
+                                        ...uniqueTechnicians.map((technician) {
                                           return DropdownMenuItem<String>(
                                             value: technician.matricule,
                                             child: Text(technician.name),
@@ -814,17 +882,108 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildMachineStatisticsSection(MachineAnalytics analytics) {
-    final totalWorkingTime = analytics.totalWorkingTime;
-    final totalStoppedTime = analytics.totalStoppedTime;
-    final maintenanceTime = analytics.maintenanceInProgressTime;
-    final stoppedWithoutMaintenance = analytics.stoppedWithoutMaintenanceTime;
+    // Calculate filtered total working time and stopped time based on selected time period and filters
+    Duration filteredWorkingTime = Duration.zero;
+    Duration filteredStoppedTime = Duration.zero;
+    Duration filteredMaintenanceTime = Duration.zero;
+    Duration filteredStoppedWithoutMaintenance = Duration.zero;
+    int filteredTotalSessions = 0;
 
-    final totalTime = totalWorkingTime + totalStoppedTime;
+    // Determine start and end date based on selected time period and inputs
+    DateTime? startDate;
+    DateTime? endDate;
+
+    switch (_selectedTimePeriod) {
+      case TimePeriod.day:
+        if (_selectedDay != null) {
+          startDate = DateTime(
+            _selectedDay!.year,
+            _selectedDay!.month,
+            _selectedDay!.day,
+          );
+          endDate = startDate.add(const Duration(days: 1));
+        }
+        break;
+      case TimePeriod.week:
+        if (_weekStartDate != null && _weekEndDate != null) {
+          startDate = DateTime(
+            _weekStartDate!.year,
+            _weekStartDate!.month,
+            _weekStartDate!.day,
+          );
+          endDate = DateTime(
+            _weekEndDate!.year,
+            _weekEndDate!.month,
+            _weekEndDate!.day,
+          ).add(const Duration(days: 1));
+        }
+        break;
+      case TimePeriod.month:
+        if (_selectedMonth != null) {
+          startDate = DateTime(_selectedMonth!.year, _selectedMonth!.month, 1);
+          endDate = DateTime(
+            _selectedMonth!.year,
+            _selectedMonth!.month + 1,
+            1,
+          );
+        }
+        break;
+      case TimePeriod.year:
+        if (_selectedYear != null) {
+          startDate = DateTime(_selectedYear!, 1, 1);
+          endDate = DateTime(_selectedYear! + 1, 1, 1);
+        }
+        break;
+      case TimePeriod.all:
+        startDate = null;
+        endDate = null;
+        break;
+      default:
+        startDate = null;
+        endDate = null;
+        break;
+    }
+
+    // If no specific time period selected (e.g., user wants global stats), use null to indicate no filtering
+    if (startDate == null || endDate == null) {
+      filteredWorkingTime = analytics.totalWorkingTime;
+      filteredStoppedTime = analytics.totalStoppedTime;
+      filteredMaintenanceTime = analytics.maintenanceInProgressTime;
+      filteredStoppedWithoutMaintenance =
+          analytics.stoppedWithoutMaintenanceTime;
+      filteredTotalSessions = _sessions.length;
+    } else {
+      // Filter sessions by date and machine
+      final filteredSessions = _sessions.where((session) {
+        final sessionStart = session.startTime;
+        return sessionStart.isAfter(startDate!) &&
+            sessionStart.isBefore(endDate!) &&
+            (_selectedMachineId == null ||
+                session.machineReference == _selectedMachineId);
+      }).toList();
+
+      filteredTotalSessions = filteredSessions.length;
+
+      // Sum durations from filtered sessions for working and stopped times
+      for (final session in filteredSessions) {
+        final analyticsForMachine = _machineAnalytics[session.machineReference];
+        if (analyticsForMachine != null) {
+          filteredWorkingTime += analyticsForMachine.totalWorkingTime;
+          filteredStoppedTime += analyticsForMachine.totalStoppedTime;
+          filteredMaintenanceTime +=
+              analyticsForMachine.maintenanceInProgressTime;
+          filteredStoppedWithoutMaintenance +=
+              analyticsForMachine.stoppedWithoutMaintenanceTime;
+        }
+      }
+    }
+
+    final totalTime = filteredWorkingTime + filteredStoppedTime;
     final workingPercentage = totalTime.inSeconds > 0
-        ? (totalWorkingTime.inSeconds / totalTime.inSeconds * 100)
+        ? (filteredWorkingTime.inSeconds / totalTime.inSeconds * 100)
         : 0;
     final stoppedPercentage = totalTime.inSeconds > 0
-        ? (totalStoppedTime.inSeconds / totalTime.inSeconds * 100)
+        ? (filteredStoppedTime.inSeconds / totalTime.inSeconds * 100)
         : 0;
 
     return Card(
@@ -860,12 +1019,12 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                       ),
                       ChartData(
                         'Maintenance',
-                        maintenanceTime.inHours.toDouble(),
+                        filteredMaintenanceTime.inHours.toDouble(),
                         Colors.blue,
                       ),
                       ChartData(
                         'Stopped (No Maintenance)',
-                        stoppedWithoutMaintenance.inHours.toDouble(),
+                        filteredStoppedWithoutMaintenance.inHours.toDouble(),
                         Colors.red,
                       ),
                     ],
@@ -883,21 +1042,21 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             const SizedBox(height: 10),
             _buildStatCard(
               'Total Working Time',
-              _formatDuration(totalWorkingTime),
+              _formatDuration(filteredWorkingTime),
             ),
             _buildStatCard(
               'Total Stopped Time',
-              _formatDuration(totalStoppedTime),
+              _formatDuration(filteredStoppedTime),
             ),
             _buildStatCard(
               'Maintenance In Progress',
-              _formatDuration(maintenanceTime),
+              _formatDuration(filteredMaintenanceTime),
             ),
             _buildStatCard(
               'Stopped Without Maintenance',
-              _formatDuration(stoppedWithoutMaintenance),
+              _formatDuration(filteredStoppedWithoutMaintenance),
             ),
-            _buildStatCard('Total Sessions', _sessions.length.toString()),
+            _buildStatCard('Total Sessions', filteredTotalSessions.toString()),
           ],
         ),
       ),
@@ -1154,11 +1313,13 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 }
 
-enum TimePeriod { day, week, month, year }
+enum TimePeriod { all, day, week, month, year }
 
 extension TimePeriodExtension on TimePeriod {
   String get name {
     switch (this) {
+      case TimePeriod.all:
+        return 'all';
       case TimePeriod.day:
         return 'day';
       case TimePeriod.week:
