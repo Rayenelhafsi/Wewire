@@ -22,6 +22,14 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   String? _selectedOperatorId;
   String? _selectedTechnicianId;
 
+  // New state variables for precise date inputs
+  DateTime? _selectedDay;
+  DateTime?
+  _selectedMonth; // We'll use DateTime but only month and year are relevant
+  int? _selectedYear;
+  DateTime? _weekStartDate;
+  DateTime? _weekEndDate;
+
   List<Machine> _machines = [];
   List<Operator> _operators = [];
   List<Technician> _technicians = [];
@@ -147,92 +155,70 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   // Machine Statistics Calculations
-  Map<String, dynamic> _calculateMachineStatistics() {
-    final startDate = _getStartDateForPeriod(_selectedTimePeriod);
-    final filteredSessions = _sessions
-        .where(
-          (session) =>
-              session.startTime.isAfter(startDate) &&
-              (_selectedMachineId == null ||
-                  session.machineReference == _selectedMachineId),
-        )
-        .toList();
-
-    // Filter issues for potential future use
-    _issues.where(
-      (issue) =>
-          issue.createdAt.isAfter(startDate) &&
-          (_selectedMachineId == null || issue.machineId == _selectedMachineId),
-    );
-
-    // Calculate total working time (both in-progress and closed sessions)
-    final totalWorkingTime = filteredSessions
-        .where(
-          (session) =>
-              session.status == SessionStatus.inProgress ||
-              session.status == SessionStatus.closed,
-        )
-        .fold(Duration.zero, (total, session) {
-          if (session.status == SessionStatus.inProgress) {
-            // For in-progress sessions, calculate time from start to now
-            return total + (DateTime.now().difference(session.startTime));
-          } else {
-            // For closed sessions, calculate time from start to end
-            return total +
-                (session.endTime?.difference(session.startTime) ??
-                    Duration.zero);
-          }
-        });
-
-    // Calculate total stopped time (open sessions without maintenance)
-    final totalStoppedTime = filteredSessions
-        .where((session) => session.status == SessionStatus.open)
-        .fold(
-          Duration.zero,
-          (total, session) =>
-              total + (DateTime.now().difference(session.startTime)),
-        );
-
-    // Calculate maintenance in progress time (in-progress sessions)
-    final maintenanceInProgressTime = filteredSessions
-        .where((session) => session.status == SessionStatus.inProgress)
-        .fold(
-          Duration.zero,
-          (total, session) =>
-              total + (DateTime.now().difference(session.startTime)),
-        );
-
-    // Calculate stopped without maintenance time (open sessions)
-    final stoppedWithoutMaintenance = filteredSessions
-        .where((session) => session.status == SessionStatus.open)
-        .fold(
-          Duration.zero,
-          (total, session) =>
-              total + (DateTime.now().difference(session.startTime)),
-        );
-
-    return {
-      'totalWorkingTime': totalWorkingTime,
-      'totalStoppedTime': totalStoppedTime,
-      'maintenanceInProgressTime': maintenanceInProgressTime,
-      'stoppedWithoutMaintenance': stoppedWithoutMaintenance,
-      'totalSessions': filteredSessions.length,
-    };
-  }
+  // Removed dynamic calculation to use Firestore data directly
 
   // Operator Statistics Calculations
   Map<String, dynamic> _calculateOperatorStatistics() {
-    final startDate = _getStartDateForPeriod(_selectedTimePeriod);
-    final filteredSessions = _sessions
-        .where(
-          (session) =>
-              session.startTime.isAfter(startDate) &&
-              (_selectedOperatorId == null ||
-                  session.operatorMatricule == _selectedOperatorId) &&
-              (_selectedMachineId == null ||
-                  session.machineReference == _selectedMachineId),
-        )
-        .toList();
+    // Determine start and end date based on selected time period and inputs
+    DateTime? startDate;
+    DateTime? endDate;
+
+    switch (_selectedTimePeriod) {
+      case TimePeriod.day:
+        if (_selectedDay != null) {
+          startDate = DateTime(
+            _selectedDay!.year,
+            _selectedDay!.month,
+            _selectedDay!.day,
+          );
+          endDate = startDate.add(const Duration(days: 1));
+        }
+        break;
+      case TimePeriod.week:
+        if (_weekStartDate != null && _weekEndDate != null) {
+          startDate = DateTime(
+            _weekStartDate!.year,
+            _weekStartDate!.month,
+            _weekStartDate!.day,
+          );
+          endDate = DateTime(
+            _weekEndDate!.year,
+            _weekEndDate!.month,
+            _weekEndDate!.day,
+          ).add(const Duration(days: 1));
+        }
+        break;
+      case TimePeriod.month:
+        if (_selectedMonth != null) {
+          startDate = DateTime(_selectedMonth!.year, _selectedMonth!.month, 1);
+          endDate = DateTime(
+            _selectedMonth!.year,
+            _selectedMonth!.month + 1,
+            1,
+          );
+        }
+        break;
+      case TimePeriod.year:
+        if (_selectedYear != null) {
+          startDate = DateTime(_selectedYear!, 1, 1);
+          endDate = DateTime(_selectedYear! + 1, 1, 1);
+        }
+        break;
+    }
+
+    // Fallback to default start date if no specific input provided
+    startDate ??= _getStartDateForPeriod(_selectedTimePeriod);
+    endDate ??= DateTime.now().add(const Duration(days: 1));
+
+    final filteredSessions = _sessions.where((session) {
+      final sessionStart = session.startTime;
+      return sessionStart.isAfter(startDate!) &&
+          sessionStart.isBefore(endDate!) &&
+          (_selectedOperatorId == null ||
+              session.operatorMatricule == _selectedOperatorId) &&
+          (_selectedMachineId == null ||
+              session.machineReference == _selectedMachineId);
+    }).toList();
 
     final operatorTime = <String, Duration>{};
 
@@ -253,15 +239,63 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   // Technician Statistics Calculations
   Map<String, dynamic> _calculateTechnicianStatistics() {
-    final startDate = _getStartDateForPeriod(_selectedTimePeriod);
-    final filteredIssues = _issues
-        .where(
-          (issue) =>
-              issue.createdAt.isAfter(startDate) &&
-              (_selectedTechnicianId == null ||
-                  issue.assignedMaintenanceId == _selectedTechnicianId),
-        )
-        .toList();
+    // Determine start and end date based on selected time period and inputs
+    DateTime? startDate;
+    DateTime? endDate;
+
+    switch (_selectedTimePeriod) {
+      case TimePeriod.day:
+        if (_selectedDay != null) {
+          startDate = DateTime(
+            _selectedDay!.year,
+            _selectedDay!.month,
+            _selectedDay!.day,
+          );
+          endDate = startDate.add(const Duration(days: 1));
+        }
+        break;
+      case TimePeriod.week:
+        if (_weekStartDate != null && _weekEndDate != null) {
+          startDate = DateTime(
+            _weekStartDate!.year,
+            _weekStartDate!.month,
+            _weekStartDate!.day,
+          );
+          endDate = DateTime(
+            _weekEndDate!.year,
+            _weekEndDate!.month,
+            _weekEndDate!.day,
+          ).add(const Duration(days: 1));
+        }
+        break;
+      case TimePeriod.month:
+        if (_selectedMonth != null) {
+          startDate = DateTime(_selectedMonth!.year, _selectedMonth!.month, 1);
+          endDate = DateTime(
+            _selectedMonth!.year,
+            _selectedMonth!.month + 1,
+            1,
+          );
+        }
+        break;
+      case TimePeriod.year:
+        if (_selectedYear != null) {
+          startDate = DateTime(_selectedYear!, 1, 1);
+          endDate = DateTime(_selectedYear! + 1, 1, 1);
+        }
+        break;
+    }
+
+    // Fallback to default start date if no specific input provided
+    startDate ??= _getStartDateForPeriod(_selectedTimePeriod);
+    endDate ??= DateTime.now().add(const Duration(days: 1));
+
+    final filteredIssues = _issues.where((issue) {
+      return issue.createdAt.isAfter(startDate!) &&
+          issue.createdAt.isBefore(endDate!) &&
+          (_selectedTechnicianId == null ||
+              issue.assignedMaintenanceId == _selectedTechnicianId);
+    }).toList();
 
     final responseTimes = <String, List<Duration>>{};
     final repairTimes = <String, List<Duration>>{};
@@ -307,9 +341,13 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final machineStats = _calculateMachineStatistics();
     final operatorStats = _calculateOperatorStatistics();
     final technicianStats = _calculateTechnicianStatistics();
+
+    // Get the MachineAnalytics for the selected machine or null
+    final machineAnalytics = _selectedMachineId != null
+        ? _machineAnalytics[_selectedMachineId!]
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -328,7 +366,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             const SizedBox(height: 20),
 
             // Machine Statistics
-            _buildMachineStatisticsSection(machineStats),
+            if (machineAnalytics != null)
+              _buildMachineStatisticsSection(machineAnalytics)
+            else
+              const Center(child: Text('No machine analytics data available')),
             const SizedBox(height: 20),
 
             // Operator Statistics
@@ -377,6 +418,12 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                         onChanged: (value) {
                           setState(() {
                             _selectedTimePeriod = value!;
+                            // Reset date inputs on time period change
+                            _selectedDay = null;
+                            _selectedMonth = null;
+                            _selectedYear = null;
+                            _weekStartDate = null;
+                            _weekEndDate = null;
                           });
                         },
                       ),
@@ -417,6 +464,72 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 400;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_selectedTimePeriod == TimePeriod.day)
+                      _buildDatePicker(
+                        label: 'Select Date',
+                        selectedDate: _selectedDay,
+                        onDateSelected: (date) {
+                          setState(() {
+                            _selectedDay = date;
+                          });
+                        },
+                      ),
+                    if (_selectedTimePeriod == TimePeriod.month)
+                      _buildMonthPicker(
+                        label: 'Select Month',
+                        selectedDate: _selectedMonth,
+                        onDateSelected: (date) {
+                          setState(() {
+                            _selectedMonth = date;
+                          });
+                        },
+                      ),
+                    if (_selectedTimePeriod == TimePeriod.year)
+                      _buildYearPicker(
+                        label: 'Select Year',
+                        selectedYear: _selectedYear,
+                        onYearSelected: (year) {
+                          setState(() {
+                            _selectedYear = year;
+                          });
+                        },
+                      ),
+                    if (_selectedTimePeriod == TimePeriod.week)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDatePicker(
+                            label: 'Week Start Date',
+                            selectedDate: _weekStartDate,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _weekStartDate = date;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          _buildDatePicker(
+                            label: 'Week End Date',
+                            selectedDate: _weekEndDate,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _weekEndDate = date;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 10),
             LayoutBuilder(
@@ -569,12 +682,142 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     );
   }
 
-  Widget _buildMachineStatisticsSection(Map<String, dynamic> stats) {
-    final totalWorkingTime = stats['totalWorkingTime'] as Duration;
-    final totalStoppedTime = stats['totalStoppedTime'] as Duration;
-    final maintenanceTime = stats['maintenanceInProgressTime'] as Duration;
-    final stoppedWithoutMaintenance =
-        stats['stoppedWithoutMaintenance'] as Duration;
+  // Helper widgets for date/month/year pickers
+  Widget _buildDatePicker({
+    required String label,
+    required DateTime? selectedDate,
+    required ValueChanged<DateTime> onDateSelected,
+  }) {
+    return InkWell(
+      onTap: () async {
+        final now = DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: selectedDate ?? now,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (picked != null) {
+          onDateSelected(picked);
+        }
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+        ),
+        child: Text(
+          selectedDate != null
+              ? '${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}'
+              : 'Select date',
+          style: TextStyle(
+            color: selectedDate != null ? Colors.black87 : Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthPicker({
+    required String label,
+    required DateTime? selectedDate,
+    required ValueChanged<DateTime> onDateSelected,
+  }) {
+    // Since Flutter does not have a built-in month picker, we use a date picker and ignore the day
+    return InkWell(
+      onTap: () async {
+        final now = DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: selectedDate ?? now,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+          selectableDayPredicate: (day) =>
+              true, // Allow all days to be selectable
+        );
+        if (picked != null) {
+          // Normalize to first day of the month
+          onDateSelected(DateTime(picked.year, picked.month, 1));
+        }
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+        ),
+        child: Text(
+          selectedDate != null
+              ? '${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}'
+              : 'Select month',
+          style: TextStyle(
+            color: selectedDate != null ? Colors.black87 : Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildYearPicker({
+    required String label,
+    required int? selectedYear,
+    required ValueChanged<int> onYearSelected,
+  }) {
+    return InkWell(
+      onTap: () async {
+        final now = DateTime.now();
+        final years = List.generate(101, (index) => 2000 + index);
+        final selected = await showDialog<int>(
+          context: context,
+          builder: (context) {
+            return SimpleDialog(
+              title: Text(label),
+              children: years
+                  .map(
+                    (year) => SimpleDialogOption(
+                      onPressed: () => Navigator.pop(context, year),
+                      child: Text(year.toString()),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        );
+        if (selected != null) {
+          onYearSelected(selected);
+        }
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+        ),
+        child: Text(
+          selectedYear?.toString() ?? 'Select year',
+          style: TextStyle(
+            color: selectedYear != null ? Colors.black87 : Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMachineStatisticsSection(MachineAnalytics analytics) {
+    final totalWorkingTime = analytics.totalWorkingTime;
+    final totalStoppedTime = analytics.totalStoppedTime;
+    final maintenanceTime = analytics.maintenanceInProgressTime;
+    final stoppedWithoutMaintenance = analytics.stoppedWithoutMaintenanceTime;
 
     final totalTime = totalWorkingTime + totalStoppedTime;
     final workingPercentage = totalTime.inSeconds > 0
@@ -654,7 +897,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
               'Stopped Without Maintenance',
               _formatDuration(stoppedWithoutMaintenance),
             ),
-            _buildStatCard('Total Sessions', stats['totalSessions'].toString()),
+            _buildStatCard('Total Sessions', _sessions.length.toString()),
           ],
         ),
       ),
