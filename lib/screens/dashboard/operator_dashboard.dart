@@ -466,9 +466,9 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         operatorMatricule: widget.user.id, // Assuming user.id is the matricule
         technicianMatricule: '', // Not assigned yet
         machineReference: machine.id,
-        issueTitle: 'Work on ${machine.name}',
-        issueDescription:
-            'Operator ${widget.user.name} started working on ${machine.name}',
+        issueTitle: '',
+        issueDescription: '',
+        interventionType: InterventionType.none,
         startTime: startTime,
         status: SessionStatus.inProgress, // In progress status for active work
         cableReference: cableReference,
@@ -673,6 +673,8 @@ class _OperatorDashboardState extends State<OperatorDashboard>
           machineReference: _currentlyWorkingMachineId ?? '',
           issueTitle: existingSession.issueTitle,
           issueDescription: existingSession.issueDescription,
+          interventionType:
+              existingSession.interventionType, // Preserve original value
           startTime: _sessionStartTime!,
           endTime: endTime,
           status: SessionStatus.closed,

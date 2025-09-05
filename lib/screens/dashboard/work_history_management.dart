@@ -257,6 +257,7 @@ class _WorkHistoryManagementState extends State<WorkHistoryManagement> {
                     issueTitle: 'Work History Entry', // Placeholder
                     issueDescription:
                         'Description of work history', // Placeholder
+                    interventionType: InterventionType.none,
                     startTime: DateFormat(
                       'dd/MM/yyyy HH:mm',
                     ).parseStrict(startTimeController.text),

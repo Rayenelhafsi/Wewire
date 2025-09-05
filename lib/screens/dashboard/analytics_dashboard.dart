@@ -140,6 +140,20 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     _setupStreamListeners();
   }
 
+  void _clearFilters() {
+    setState(() {
+      _selectedTimePeriod = TimePeriod.all;
+      _selectedMachineId = null;
+      _selectedOperatorId = null;
+      _selectedTechnicianId = null;
+      _selectedDay = null;
+      _selectedMonth = null;
+      _selectedYear = null;
+      _weekStartDate = null;
+      _weekEndDate = null;
+    });
+  }
+
   DateTime _getStartDateForPeriod(TimePeriod period) {
     final now = DateTime.now();
     switch (period) {
@@ -367,6 +381,37 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         : null;
   }
 
+  MachineAnalytics? _aggregateAllMachineAnalytics() {
+    if (_machineAnalytics.isEmpty) return null;
+
+    Duration totalWorkingTime = Duration.zero;
+    Duration totalStoppedTime = Duration.zero;
+    Duration totalMaintenanceInProgressTime = Duration.zero;
+    Duration totalStoppedWithoutMaintenanceTime = Duration.zero;
+
+    for (var analytics in _machineAnalytics.values) {
+      totalWorkingTime += analytics.totalWorkingTime;
+      totalStoppedTime += analytics.totalStoppedTime;
+      totalMaintenanceInProgressTime += analytics.maintenanceInProgressTime;
+      totalStoppedWithoutMaintenanceTime +=
+          analytics.stoppedWithoutMaintenanceTime;
+    }
+
+    // Provide default values for required parameters not included in aggregation
+    return MachineAnalytics(
+      machineId: 'all_machines',
+      totalWorkingTime: totalWorkingTime,
+      totalStoppedTime: totalStoppedTime,
+      maintenanceInProgressTime: totalMaintenanceInProgressTime,
+      stoppedWithoutMaintenanceTime: totalStoppedWithoutMaintenanceTime,
+      dailyStoppedTime: {},
+      monthlyStoppedTime: {},
+      yearlyStoppedTime: {},
+      stoppedReadyForWorkTime: Duration.zero,
+      lastUpdated: DateTime.now(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final operatorStats = _calculateOperatorStatistics();
@@ -375,12 +420,17 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     // Get the MachineAnalytics for the selected machine or null
     final machineAnalytics = _selectedMachineId != null
         ? _machineAnalytics[_selectedMachineId!]
-        : null;
+        : _aggregateAllMachineAnalytics();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.clear),
+            tooltip: 'Clear Filters',
+            onPressed: _clearFilters,
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshData),
         ],
       ),
@@ -615,7 +665,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                 value: _selectedOperatorId,
                                 decoration: const InputDecoration(
                                   contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 8.0,
+                                    horizontal: 4.0,
                                   ),
                                 ),
                                 isDense: true,
@@ -643,7 +693,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                 value: _selectedTechnicianId,
                                 decoration: const InputDecoration(
                                   contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 8.0,
+                                    horizontal: 4.0,
                                   ),
                                 ),
                                 isDense: true,
@@ -948,10 +998,28 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     if (startDate == null || endDate == null) {
       filteredWorkingTime = analytics.totalWorkingTime;
       filteredStoppedTime = analytics.totalStoppedTime;
-      filteredMaintenanceTime = analytics.maintenanceInProgressTime;
-      filteredStoppedWithoutMaintenance =
-          analytics.stoppedWithoutMaintenanceTime;
-      filteredTotalSessions = _sessions.length;
+
+      // For maintenance and stopped without maintenance, sum over all machines if no specific machine selected
+      if (_selectedMachineId == null) {
+        filteredMaintenanceTime = _machineAnalytics.values.fold(
+          Duration.zero,
+          (prev, element) => prev + element.maintenanceInProgressTime,
+        );
+        filteredStoppedWithoutMaintenance = _machineAnalytics.values.fold(
+          Duration.zero,
+          (prev, element) => prev + element.stoppedWithoutMaintenanceTime,
+        );
+      } else {
+        filteredMaintenanceTime = analytics.maintenanceInProgressTime;
+        filteredStoppedWithoutMaintenance =
+            analytics.stoppedWithoutMaintenanceTime;
+      }
+
+      // Filter sessions by machine if selected, else all sessions
+      filteredTotalSessions = _sessions.where((session) {
+        if (_selectedMachineId == null) return true;
+        return session.machineReference == _selectedMachineId;
+      }).length;
     } else {
       // Filter sessions by date and machine
       final filteredSessions = _sessions.where((session) {

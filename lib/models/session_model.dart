@@ -84,4 +84,4 @@ class Session {
 
 enum SessionStatus { open, inProgress, resolved, closed, delayed }
 
-enum InterventionType { remote, inPerson }
+enum InterventionType { none, remote, inPerson }

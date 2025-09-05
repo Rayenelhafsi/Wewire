@@ -68,6 +68,7 @@ class _WorkRequestsManagementState extends State<WorkRequestsManagement> {
                                         issueTitle: session.issueTitle,
                                         issueDescription:
                                             session.issueDescription,
+                                        interventionType: InterventionType.none,
                                         startTime: session.startTime,
                                         endTime: session.endTime,
                                         status: SessionStatus.inProgress,
