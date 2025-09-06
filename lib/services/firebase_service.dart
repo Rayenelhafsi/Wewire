@@ -341,6 +341,18 @@ class FirebaseService {
     return query.docs.map((doc) => Session.fromJson(doc.data())).toList();
   }
 
+  static Future<List<Session>> getActiveSessionsByMachine(
+    String machineId,
+  ) async {
+    final query = await _firestore
+        .collection('sessions')
+        .where('machineReference', isEqualTo: machineId)
+        .where('status', whereIn: ['open', 'inProgress'])
+        .get();
+
+    return query.docs.map((doc) => Session.fromJson(doc.data())).toList();
+  }
+
   /// Closes all active sessions (status open or inProgress) for the given operator matricule
   static Future<void> closeActiveSessionsForOperator(
     String operatorMatricule,
@@ -1220,6 +1232,36 @@ class FirebaseService {
         );
   }
 
+  /// Initialize default analytics document for a machine if it does not exist
+  static Future<void> initializeMachineAnalyticsIfMissing(
+    String machineId,
+  ) async {
+    final docRef = _firestore
+        .collection('machines')
+        .doc(machineId)
+        .collection('analytics')
+        .doc('overview');
+
+    final docSnapshot = await docRef.get();
+    if (!docSnapshot.exists) {
+      final now = DateTime.now();
+      final defaultAnalytics = MachineAnalytics(
+        machineId: machineId,
+        dailyStoppedTime: {},
+        monthlyStoppedTime: {},
+        yearlyStoppedTime: {},
+        totalWorkingTime: Duration.zero,
+        totalStoppedTime: Duration.zero,
+        stoppedWithoutMaintenanceTime: Duration.zero,
+        stoppedReadyForWorkTime: Duration.zero,
+        maintenanceInProgressTime: Duration.zero,
+        lastUpdated: now,
+      );
+      await docRef.set(defaultAnalytics.toJson());
+      print('Initialized default analytics for machine $machineId');
+    }
+  }
+
   static Future<void> updateMachineAnalytics(
     String machineId,
     Map<String, dynamic> updates,
@@ -1341,6 +1383,18 @@ class FirebaseService {
           additionalTime.inSeconds,
       'lastUpdated': now.toIso8601String(),
     });
+
+    // Recalculate totalStoppedTime
+    final totalStoppedTime =
+        analytics.maintenanceInProgressTime +
+        analytics.stoppedWithoutMaintenanceTime +
+        analytics.stoppedReadyForWorkTime +
+        additionalTime;
+
+    await updateMachineAnalytics(machineId, {
+      'totalStoppedTime': totalStoppedTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
   }
 
   static Future<void> updateStoppedWithoutMaintenanceTime(
@@ -1369,6 +1423,18 @@ class FirebaseService {
           additionalTime.inSeconds,
       'lastUpdated': now.toIso8601String(),
     });
+
+    // Recalculate totalStoppedTime
+    final totalStoppedTime =
+        analytics.maintenanceInProgressTime +
+        analytics.stoppedWithoutMaintenanceTime +
+        analytics.stoppedReadyForWorkTime +
+        additionalTime;
+
+    await updateMachineAnalytics(machineId, {
+      'totalStoppedTime': totalStoppedTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
   }
 
   static Future<void> updateStoppedReadyForWorkTime(
@@ -1395,6 +1461,18 @@ class FirebaseService {
       'stoppedReadyForWorkTime':
           analytics.stoppedReadyForWorkTime.inSeconds +
           additionalTime.inSeconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+
+    // Recalculate totalStoppedTime
+    final totalStoppedTime =
+        analytics.maintenanceInProgressTime +
+        analytics.stoppedWithoutMaintenanceTime +
+        analytics.stoppedReadyForWorkTime +
+        additionalTime;
+
+    await updateMachineAnalytics(machineId, {
+      'totalStoppedTime': totalStoppedTime.inSeconds,
       'lastUpdated': now.toIso8601String(),
     });
   }

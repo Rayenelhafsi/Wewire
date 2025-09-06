@@ -51,6 +51,8 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     _setupStreamListeners();
   }
 
+  // Removed _initializeAnalyticsForMachines method and call from initState
+
   @override
   void dispose() {
     _machinesSubscription?.cancel();
@@ -62,10 +64,17 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   void _setupStreamListeners() {
-    _machinesSubscription = FirebaseService.getMachines().listen((machines) {
+    _machinesSubscription = FirebaseService.getMachines().listen((
+      machines,
+    ) async {
       setState(() {
         _machines = machines;
       });
+
+      // Initialize analytics for machines if missing
+      for (var machine in machines) {
+        await FirebaseService.initializeMachineAnalyticsIfMissing(machine.id);
+      }
 
       // Cancel previous analytics subscriptions
       for (var sub in _analyticsSubscriptions.values) {
@@ -78,6 +87,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         final sub = FirebaseService.streamMachineAnalytics(machine.id).listen((
           analytics,
         ) {
+          print(
+            'Received analytics update for machine ${machine.id}: ${analytics != null}',
+          );
           setState(() {
             if (analytics != null) {
               _machineAnalytics[machine.id] = analytics;
@@ -388,6 +400,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     Duration totalStoppedTime = Duration.zero;
     Duration totalMaintenanceInProgressTime = Duration.zero;
     Duration totalStoppedWithoutMaintenanceTime = Duration.zero;
+    Duration totalStoppedReadyForWorkTime = Duration.zero;
 
     for (var analytics in _machineAnalytics.values) {
       totalWorkingTime += analytics.totalWorkingTime;
@@ -395,6 +408,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       totalMaintenanceInProgressTime += analytics.maintenanceInProgressTime;
       totalStoppedWithoutMaintenanceTime +=
           analytics.stoppedWithoutMaintenanceTime;
+      totalStoppedReadyForWorkTime += analytics.stoppedReadyForWorkTime;
     }
 
     // Provide default values for required parameters not included in aggregation
@@ -407,7 +421,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       dailyStoppedTime: {},
       monthlyStoppedTime: {},
       yearlyStoppedTime: {},
-      stoppedReadyForWorkTime: Duration.zero,
+      stoppedReadyForWorkTime: totalStoppedReadyForWorkTime,
       lastUpdated: DateTime.now(),
     );
   }
@@ -937,6 +951,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     Duration filteredStoppedTime = Duration.zero;
     Duration filteredMaintenanceTime = Duration.zero;
     Duration filteredStoppedWithoutMaintenance = Duration.zero;
+    Duration filteredStoppedReadyForWork = Duration.zero;
     int filteredTotalSessions = 0;
 
     // Determine start and end date based on selected time period and inputs
@@ -1009,10 +1024,15 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           Duration.zero,
           (prev, element) => prev + element.stoppedWithoutMaintenanceTime,
         );
+        filteredStoppedReadyForWork = _machineAnalytics.values.fold(
+          Duration.zero,
+          (prev, element) => prev + element.stoppedReadyForWorkTime,
+        );
       } else {
         filteredMaintenanceTime = analytics.maintenanceInProgressTime;
         filteredStoppedWithoutMaintenance =
             analytics.stoppedWithoutMaintenanceTime;
+        filteredStoppedReadyForWork = analytics.stoppedReadyForWorkTime;
       }
 
       // Filter sessions by machine if selected, else all sessions
@@ -1042,6 +1062,8 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
               analyticsForMachine.maintenanceInProgressTime;
           filteredStoppedWithoutMaintenance +=
               analyticsForMachine.stoppedWithoutMaintenanceTime;
+          filteredStoppedReadyForWork +=
+              analyticsForMachine.stoppedReadyForWorkTime;
         }
       }
     }
@@ -1095,6 +1117,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                         filteredStoppedWithoutMaintenance.inHours.toDouble(),
                         Colors.red,
                       ),
+                      ChartData(
+                        'Stopped Ready For Work',
+                        filteredStoppedReadyForWork.inHours.toDouble(),
+                        Colors.purple,
+                      ),
                     ],
                     xValueMapper: (ChartData data, _) => data.category,
                     yValueMapper: (ChartData data, _) => data.value,
@@ -1123,6 +1150,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             _buildStatCard(
               'Stopped Without Maintenance',
               _formatDuration(filteredStoppedWithoutMaintenance),
+            ),
+            _buildStatCard(
+              'Stopped Ready For Work',
+              _formatDuration(filteredStoppedReadyForWork),
             ),
             _buildStatCard('Total Sessions', filteredTotalSessions.toString()),
           ],

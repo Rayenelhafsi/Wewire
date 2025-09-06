@@ -499,11 +499,16 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         await FirebaseService.saveMachineAnalytics(newAnalytics);
       }
 
-      // Update maintenance in progress time with zero initially
-      await FirebaseService.updateMaintenanceInProgressTime(
-        machine.id,
-        Duration.zero,
-      );
+      // Preserve existing stopped time - don't reset total by setting maintenance to zero
+      // Just initialize maintenance time tracking from this point
+      if (existingAnalytics != null) {
+        debugPrint(
+          'DEBUG: Preserving existing totalStoppedTime: ${existingAnalytics.totalStoppedTime}',
+        );
+        debugPrint(
+          'DEBUG: Current working time before start: ${existingAnalytics.totalWorkingTime}',
+        );
+      }
 
       // Start periodic analytics updates every 5 minutes
       _startPeriodicAnalyticsUpdates(machine.id, startTime);
@@ -531,18 +536,82 @@ class _OperatorDashboardState extends State<OperatorDashboard>
     // Cancel any existing timer
     _analyticsUpdateTimer?.cancel();
 
+    // Track the last time stoppedReadyForWorkTime was updated
+    DateTime lastStoppedReadyForWorkUpdate = DateTime.now();
+    DateTime lastWorkingTimeUpdate = DateTime.now();
+
+    print('DEBUG: Starting periodic analytics updates for machine $machineId');
+
     // Start new timer that fires every 5 minutes
     _analyticsUpdateTimer = Timer.periodic(const Duration(minutes: 5), (
       timer,
     ) async {
       final now = DateTime.now();
-      final durationSinceLastUpdate = now.difference(startTime);
 
-      // Update maintenance in progress time with actual duration
-      await FirebaseService.updateMaintenanceInProgressTime(
+      print('DEBUG: Analytics timer fired for machine $machineId at $now');
+
+      // Check for active sessions
+      final activeSessions = await FirebaseService.getActiveSessionsByMachine(
         machineId,
-        durationSinceLastUpdate,
       );
+
+      // Fetch machine status and check for active issues
+      final machine = await FirebaseService.getMachine(machineId);
+      print('DEBUG: Machine status: ${machine?.status}');
+
+      final activeIssues = await FirebaseService.getAllIssues().first;
+      print('DEBUG: Total issues found: ${activeIssues.length}');
+
+      final hasActiveIssues = activeIssues.any(
+        (issue) =>
+            issue.machineId == machineId &&
+            (issue.status == IssueStatus.reported ||
+                issue.status == IssueStatus.inProgress),
+      );
+
+      print('DEBUG: Machine $machineId has active issues: $hasActiveIssues');
+
+      if (activeSessions.isNotEmpty) {
+        // Machine is working - update totalWorkingTime
+        final durationSinceWorkingUpdate = now.difference(
+          lastWorkingTimeUpdate,
+        );
+        print(
+          'DEBUG: Updating totalWorkingTime for machine $machineId with duration: $durationSinceWorkingUpdate',
+        );
+        await FirebaseService.updateWorkingTime(
+          machineId,
+          durationSinceWorkingUpdate,
+        );
+        lastWorkingTimeUpdate = now;
+      } else if (machine != null &&
+          machine.status == MachineStatus.operational &&
+          !hasActiveIssues) {
+        // Machine is operational but not working - update stoppedReadyForWorkTime
+        final durationSinceStoppedUpdate = now.difference(
+          lastStoppedReadyForWorkUpdate,
+        );
+
+        print(
+          'DEBUG: Updating stoppedReadyForWorkTime for machine $machineId with duration: $durationSinceStoppedUpdate',
+        );
+
+        // Update stoppedReadyForWorkTime by adding durationSinceStoppedUpdate
+        await FirebaseService.updateStoppedReadyForWorkTime(
+          machineId,
+          durationSinceStoppedUpdate,
+        );
+
+        // Update last update time
+        lastStoppedReadyForWorkUpdate = now;
+      } else {
+        print(
+          'DEBUG: NOT updating times for machine $machineId. Conditions not met.',
+        );
+        // Reset last update times if conditions not met
+        lastStoppedReadyForWorkUpdate = now;
+        lastWorkingTimeUpdate = now;
+      }
 
       // Also update lastUpdated timestamp
       await FirebaseService.updateMachineAnalytics(machineId, {
@@ -552,9 +621,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
       // Optionally, call aggregateMonthlyYearlyStats to keep aggregates updated
       await FirebaseService.aggregateMonthlyYearlyStats(machineId);
 
-      print(
-        'Periodic analytics update for machine $machineId: $durationSinceLastUpdate',
-      );
+      print('Periodic analytics update for machine $machineId completed');
     });
   }
 
@@ -798,7 +865,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<IssuePriority>(
-                value: selectedPriority,
+                initialValue: selectedPriority,
                 decoration: const InputDecoration(
                   labelText: 'Priority Level*',
                   border: OutlineInputBorder(),
