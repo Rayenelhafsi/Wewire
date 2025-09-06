@@ -1522,4 +1522,19 @@ class FirebaseService {
       });
     }
   }
+
+  static Future<void> incrementStoppedTimesRealtime(
+    String machineId,
+    int seconds,
+  ) async {
+    final analytics = await getMachineAnalytics(machineId);
+    if (analytics == null) return;
+    final now = DateTime.now();
+    await updateMachineAnalytics(machineId, {
+      'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
+      'stoppedReadyForWorkTime':
+          analytics.stoppedReadyForWorkTime.inSeconds + seconds,
+      'lastUpdated': now.toIso8601String(),
+    });
+  }
 }
