@@ -31,6 +31,8 @@ class _OperatorDashboardState extends State<OperatorDashboard>
   Timer? _stoppedTimeRealtimeTimer;
   int _workingTimeSeconds = 0;
   StreamSubscription<String>? _globalScanSubscription;
+  StreamSubscription<String>?
+  _rfidSubscription; // Add field for RFID subscription
 
   String? lastScannedUid; // Add this field to hold last scanned UID
   String? currentScanSessionUid; // Track UID for current scanning session
@@ -41,6 +43,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
   final List<StreamSubscription> _subscriptions = [];
 
   bool _isCurrentlyWorking = false;
+  bool analyticsUpdatesEnabled = true; // Add this field to track analytics updates
 
   @override
   void initState() {
@@ -54,6 +57,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
   void dispose() {
     _tabController.dispose();
     _globalScanSubscription?.cancel();
+    _rfidSubscription?.cancel(); // Cancel RFID subscription on dispose
     _analyticsUpdateTimer?.cancel();
     _workingTimeRealtimeTimer?.cancel();
     _stoppedTimeRealtimeTimer?.cancel();
@@ -262,7 +266,8 @@ class _OperatorDashboardState extends State<OperatorDashboard>
               bool isListeningActive = false;
               late StreamSubscription<String> subscription;
 
-              subscription = FirebaseService.listenForRfidTagScans(machineId).listen((
+              _rfidSubscription?.cancel(); // Cancel any existing subscription
+              _rfidSubscription = FirebaseService.listenForRfidTagScans(machineId).listen((
                 tagUid,
               ) async {
                 debugPrint('RFID tag detected: $tagUid'); // Debug print
@@ -414,7 +419,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
                   });
 
                   // Cancel subscription after first tag read
-                  await subscription.cancel();
+                  // await _rfidSubscription?.cancel();
 
                   // Update operator Firestore document if UID tag missing
                   await FirebaseService.updateOperatorRfidTagIfMissing(
@@ -441,7 +446,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
 
               // Optionally, add a timeout to cancel listening after some time (e.g., 30 seconds)
               Future.delayed(const Duration(seconds: 30), () async {
-                await subscription.cancel();
+                await _rfidSubscription?.cancel();
                 if (!mounted) return;
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -482,8 +487,10 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         quantityObjective: quantityObjective,
       );
 
+      print('DEBUG: Creating session with ID: $sessionId');
       // Save the session to Firestore
       await FirebaseService.createSession(newSession);
+      print('DEBUG: Session created successfully: $sessionId');
 
       // Initialize or update machine analytics overview document with all required fields
       final existingAnalytics = await FirebaseService.getMachineAnalytics(
@@ -521,12 +528,16 @@ class _OperatorDashboardState extends State<OperatorDashboard>
       _workingTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
         timer,
       ) async {
-        final analytics = await FirebaseService.getMachineAnalytics(machine.id);
-        if (analytics != null) {
-          await FirebaseService.updateMachineAnalytics(machine.id, {
-            'totalWorkingTime': analytics.totalWorkingTime.inSeconds + 1,
-            'lastUpdated': DateTime.now().toIso8601String(),
-          });
+        if (analyticsUpdatesEnabled) {
+          final analytics = await FirebaseService.getMachineAnalytics(
+            machine.id,
+          );
+          if (analytics != null) {
+            await FirebaseService.updateMachineAnalytics(machine.id, {
+              'totalWorkingTime': analytics.totalWorkingTime.inSeconds + 1,
+              'lastUpdated': DateTime.now().toIso8601String(),
+            });
+          }
         }
       });
 
@@ -534,15 +545,19 @@ class _OperatorDashboardState extends State<OperatorDashboard>
       _stoppedTimeRealtimeTimer?.cancel();
       _stoppedTimeRealtimeTimer = null;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Started working on ${machine.name}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Started working on ${machine.name}')),
+        );
+      }
       print('DEBUG: _startWorkOnMachine completed successfully');
     } catch (e) {
       print('ERROR in _startWorkOnMachine: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to start work: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to start work: $e')));
+      }
     }
   }
 
@@ -647,9 +662,11 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         );
 
         if (existingSession == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to find existing session')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to find existing session')),
+            );
+          }
           return;
         }
 
@@ -690,7 +707,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
           timer,
         ) async {
-          if (_currentlyWorkingMachineId != null) {
+          if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
             await FirebaseService.incrementStoppedTimesRealtime(
               _currentlyWorkingMachineId!,
               1,
@@ -834,25 +851,33 @@ class _OperatorDashboardState extends State<OperatorDashboard>
             onPressed: () async {
               // Validate required fields
               if (titleController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter an issue title')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter an issue title'),
+                    ),
+                  );
+                }
                 return;
               }
 
               if (descriptionController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a description')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a description')),
+                  );
+                }
                 return;
               }
 
               if (selectedPriority == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please select a priority level'),
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select a priority level'),
+                    ),
+                  );
+                }
                 return;
               }
 
@@ -879,9 +904,13 @@ class _OperatorDashboardState extends State<OperatorDashboard>
 
                 Navigator.pop(context);
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Issue reported successfully')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Issue reported successfully'),
+                    ),
+                  );
+                }
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Failed to report issue: $e')),
@@ -893,6 +922,17 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         ],
       ),
     );
+  }
+
+  void _toggleAnalyticsUpdates(bool enabled) {
+    setState(() {
+      analyticsUpdatesEnabled = enabled;
+    });
+    if (!enabled) {
+      _workingTimeRealtimeTimer?.cancel();
+      _stoppedTimeRealtimeTimer?.cancel();
+      _analyticsUpdateTimer?.cancel();
+    }
   }
 
   @override
@@ -969,6 +1009,13 @@ class _OperatorDashboardState extends State<OperatorDashboard>
                   Tab(text: 'My Chats'),
                 ],
               ),
+              actions: [
+                IconButton(
+                  icon: Icon(analyticsUpdatesEnabled ? Icons.pause : Icons.play_arrow),
+                  tooltip: analyticsUpdatesEnabled ? 'Stop Analytics Updates' : 'Start Analytics Updates',
+                  onPressed: () => _toggleAnalyticsUpdates(!analyticsUpdatesEnabled),
+                ),
+              ],
             ),
             body: TabBarView(
               controller: _tabController,

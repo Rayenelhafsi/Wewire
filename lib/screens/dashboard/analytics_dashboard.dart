@@ -45,13 +45,14 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   Map<String, StreamSubscription<MachineAnalytics?>> _analyticsSubscriptions =
       {};
 
+  bool _updatesActive = false; // Track if updates are active
+  Timer? _updateTimer; // Timer for periodic updates
+
   @override
   void initState() {
     super.initState();
-    _setupStreamListeners();
+    // Do not start listeners by default
   }
-
-  // Removed _initializeAnalyticsForMachines method and call from initState
 
   @override
   void dispose() {
@@ -60,6 +61,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     _techniciansSubscription?.cancel();
     _sessionsSubscription?.cancel();
     _issuesSubscription?.cancel();
+    _updateTimer?.cancel();
     super.dispose();
   }
 
@@ -133,6 +135,31 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     });
   }
 
+  void _toggleUpdates() {
+    setState(() {
+      _updatesActive = !_updatesActive;
+      analyticsUpdatesEnabled = _updatesActive; // Control Firestore writes
+    });
+    if (_updatesActive) {
+      _setupStreamListeners();
+      _updateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        // Optionally force refresh from Firestore if needed
+        // _refreshData();
+      });
+    } else {
+      _machinesSubscription?.cancel();
+      _operatorsSubscription?.cancel();
+      _techniciansSubscription?.cancel();
+      _sessionsSubscription?.cancel();
+      _issuesSubscription?.cancel();
+      for (var sub in _analyticsSubscriptions.values) {
+        sub.cancel();
+      }
+      _analyticsSubscriptions.clear();
+      _updateTimer?.cancel();
+    }
+  }
+
   Future<void> _refreshData() async {
     // Force refresh by re-subscribing to streams
     _machinesSubscription?.cancel();
@@ -178,7 +205,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       case TimePeriod.year:
         return DateTime(now.year, 1, 1);
       case TimePeriod.all:
-      default:
         return DateTime(now.year, now.month, now.day); // Fallback
     }
   }
@@ -242,8 +268,8 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           }
           break;
         case TimePeriod.all:
-        default:
-          // Already handled above or default
+          startDate = null;
+          endDate = null;
           break;
       }
 
@@ -331,10 +357,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         }
         break;
       case TimePeriod.all:
-        startDate = null;
-        endDate = null;
-        break;
-      default:
         startDate = null;
         endDate = null;
         break;
@@ -440,6 +462,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       appBar: AppBar(
         title: const Text('Analytics Dashboard'),
         actions: [
+          IconButton(
+            icon: Icon(_updatesActive ? Icons.pause : Icons.play_arrow),
+            tooltip: _updatesActive ? 'Stop Updates' : 'Activate Updates',
+            onPressed: _toggleUpdates,
+          ),
           IconButton(
             icon: const Icon(Icons.clear),
             tooltip: 'Clear Filters',
@@ -600,7 +627,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 400;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -666,144 +692,69 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 400;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    isNarrow
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Operator'),
-                              DropdownButtonFormField<String>(
-                                value: _selectedOperatorId,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                  ),
-                                ),
-                                isDense: true,
-                                items: [
-                                  DropdownMenuItem<String>(
-                                    value: null,
-                                    child: Text('All Operators'),
-                                  ),
-                                  ...uniqueOperators.map((operator) {
-                                    return DropdownMenuItem<String>(
-                                      value: operator.matricule,
-                                      child: Text(operator.name),
-                                    );
-                                  }).toList(),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedOperatorId = value;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                              const Text('Technician'),
-                              DropdownButtonFormField<String>(
-                                value: _selectedTechnicianId,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                  ),
-                                ),
-                                isDense: true,
-                                items: [
-                                  DropdownMenuItem<String>(
-                                    value: null,
-                                    child: Text('All Technicians'),
-                                  ),
-                                  ...uniqueTechnicians.map((technician) {
-                                    return DropdownMenuItem<String>(
-                                      value: technician.matricule,
-                                      child: Text(technician.name),
-                                    );
-                                  }).toList(),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedTechnicianId = value;
-                                  });
-                                },
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Operator'),
-                                    DropdownButtonFormField<String>(
-                                      value: _selectedOperatorId,
-                                      decoration: const InputDecoration(
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 8.0,
-                                        ),
-                                      ),
-                                      isDense: true,
-                                      items: [
-                                        DropdownMenuItem<String>(
-                                          value: null,
-                                          child: Text('All Operators'),
-                                        ),
-                                        ...uniqueOperators.map((operator) {
-                                          return DropdownMenuItem<String>(
-                                            value: operator.matricule,
-                                            child: Text(operator.name),
-                                          );
-                                        }).toList(),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _selectedOperatorId = value;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Technician'),
-                                    DropdownButtonFormField<String>(
-                                      value: _selectedTechnicianId,
-                                      decoration: const InputDecoration(
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 8.0,
-                                        ),
-                                      ),
-                                      isDense: true,
-                                      items: [
-                                        DropdownMenuItem<String>(
-                                          value: null,
-                                          child: Text('All Technicians'),
-                                        ),
-                                        ...uniqueTechnicians.map((technician) {
-                                          return DropdownMenuItem<String>(
-                                            value: technician.matricule,
-                                            child: Text(technician.name),
-                                          );
-                                        }).toList(),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _selectedTechnicianId = value;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Operator'),
+                        DropdownButtonFormField<String>(
+                          value: _selectedOperatorId,
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 4.0,
+                            ),
                           ),
+                          isDense: true,
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('All Operators'),
+                            ),
+                            ...uniqueOperators.map((operator) {
+                              return DropdownMenuItem<String>(
+                                value: operator.matricule,
+                                child: Text(operator.name),
+                              );
+                            }).toList(),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedOperatorId = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        const Text('Technician'),
+                        DropdownButtonFormField<String>(
+                          value: _selectedTechnicianId,
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 4.0,
+                            ),
+                          ),
+                          isDense: true,
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('All Technicians'),
+                            ),
+                            ...uniqueTechnicians.map((technician) {
+                              return DropdownMenuItem<String>(
+                                value: technician.matricule,
+                                child: Text(technician.name),
+                              );
+                            }).toList(),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedTechnicianId = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
                   ],
                 );
               },
@@ -822,10 +773,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }) {
     return InkWell(
       onTap: () async {
-        final now = DateTime.now();
         final picked = await showDatePicker(
           context: context,
-          initialDate: selectedDate ?? now,
+          initialDate: selectedDate ?? DateTime.now(),
           firstDate: DateTime(2000),
           lastDate: DateTime(2100),
         );
@@ -862,10 +812,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     // Since Flutter does not have a built-in month picker, we use a date picker and ignore the day
     return InkWell(
       onTap: () async {
-        final now = DateTime.now();
         final picked = await showDatePicker(
           context: context,
-          initialDate: selectedDate ?? now,
+          initialDate: selectedDate ?? DateTime.now(),
           firstDate: DateTime(2000),
           lastDate: DateTime(2100),
           selectableDayPredicate: (day) =>
@@ -904,7 +853,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }) {
     return InkWell(
       onTap: () async {
-        final now = DateTime.now();
         final years = List.generate(101, (index) => 2000 + index);
         final selected = await showDialog<int>(
           context: context,
@@ -1000,10 +948,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         }
         break;
       case TimePeriod.all:
-        startDate = null;
-        endDate = null;
-        break;
-      default:
         startDate = null;
         endDate = null;
         break;

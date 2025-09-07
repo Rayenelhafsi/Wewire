@@ -1,3 +1,5 @@
+library firebase_service;
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,6 +18,9 @@ import '../models/user_model.dart' as app_models;
 import '../models/private_chat_model.dart';
 import '../models/chat_message_model.dart';
 import '../models/machine_analytics_model.dart';
+
+/// Global flag to control analytics updates
+bool analyticsUpdatesEnabled = true;
 
 class FirebaseService {
   static final Logger _logger = Logger('FirebaseService');
@@ -1266,6 +1271,12 @@ class FirebaseService {
     String machineId,
     Map<String, dynamic> updates,
   ) async {
+    if (!analyticsUpdatesEnabled) {
+      print(
+        'Analytics update skipped for machineId: $machineId because updates are disabled',
+      );
+      return;
+    }
     try {
       print(
         'updateMachineAnalytics called for machineId: $machineId with updates: $updates',
