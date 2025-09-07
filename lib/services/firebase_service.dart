@@ -8,7 +8,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart';
-import 'package:logging/logging.dart';
 import '../models/operator_model.dart';
 import '../models/technician_model.dart';
 import '../models/session_model.dart';
@@ -23,7 +22,6 @@ import '../models/machine_analytics_model.dart';
 bool analyticsUpdatesEnabled = true;
 
 class FirebaseService {
-  static final Logger _logger = Logger('FirebaseService');
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseDatabase _realtimeDatabase =
       FirebaseDatabase.instanceFor(
@@ -784,7 +782,9 @@ class FirebaseService {
       }
 
       final tokenData = tokenDoc.data();
-      final fcmToken = tokenData?['fcmToken'] as String?;
+      final fcmToken = tokenData != null
+          ? tokenData['fcmToken'] as String
+          : null;
 
       if (fcmToken == null || fcmToken.isEmpty) {
         print(
@@ -822,11 +822,7 @@ class FirebaseService {
         body: jsonEncode({
           'message': {
             'token': fcmToken,
-            'notification': {
-              'title': title ?? 'Notification',
-              'body': body ?? 'You have a new notification',
-              'sound': 'default',
-            },
+            'notification': {'title': title, 'body': body, 'sound': 'default'},
             'data': data ?? {},
           },
         }),
@@ -910,14 +906,34 @@ class FirebaseService {
   static Future<void> saveIssue(Issue issue) async {
     await _firestore.collection('issues').doc(issue.id).set(issue.toJson());
 
+    // After saving the issue, check the machine status and update if needed
+    final machineDoc = await _firestore
+        .collection('machines')
+        .doc(issue.machineId)
+        .get();
+    if (machineDoc.exists) {
+      final machineData = machineDoc.data();
+      if (machineData != null) {
+        final currentStatus = machineData['status'] as String? ?? 'operational';
+        if (currentStatus != 'operational') {
+          // Update machine status to operational
+          await _firestore.collection('machines').doc(issue.machineId).update({
+            'status': 'operational',
+          });
+          print(
+            'Machine ${issue.machineId} status updated to operational due to new issue reported',
+          );
+        }
+      }
+    }
+
     // Retrieve all technician tokens from Firestore
     final techniciansSnapshot = await _firestore
         .collection('user_tokens')
         .get();
     final technicianTokens = techniciansSnapshot.docs
-        .map((doc) => doc.data()?['fcmToken'] as String?)
-        .where((token) => token != null && token.isNotEmpty)
-        .cast<String>()
+        .map((doc) => doc.data()['fcmToken'] as String)
+        .where((token) => token.isNotEmpty)
         .toList();
 
     if (technicianTokens.isEmpty) {
@@ -933,8 +949,7 @@ class FirebaseService {
           body: jsonEncode({
             'token': token,
             'title': 'New Maintenance Issue',
-            'body':
-                'A new issue has been reported: ${issue.description ?? 'No description provided'}',
+            'body': 'A new issue has been reported: ${issue.description}',
           }),
         );
 
@@ -976,6 +991,21 @@ class FirebaseService {
     await _firestore.collection('issues').doc(issue.id).update(issue.toJson());
   }
 
+  /// Returns the first assigned, unresolved issue for the given machine
+  static Future<Issue?> getAssignedUnresolvedIssue(String machineId) async {
+    final query = await _firestore
+        .collection('issues')
+        .where('machineId', isEqualTo: machineId)
+        .where('assignedMaintenanceId', isNotEqualTo: null)
+        .where('status', isNotEqualTo: 'resolved')
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      return Issue.fromJson(query.docs.first.data());
+    }
+    return null;
+  }
+
   // Admin operations - adminwewire collection (stored by UID)
   static Future<void> saveAdmin(
     String uid,
@@ -1006,10 +1036,10 @@ class FirebaseService {
           (snapshot) => snapshot.docs.map((doc) {
             final data = doc.data();
             // Ensure uid field is present - use document ID if not in data
-            if (data != null && !data.containsKey('uid')) {
+            if (!data.containsKey('uid')) {
               return {...data, 'uid': doc.id};
             }
-            return data ?? {};
+            return data;
           }).toList(),
         );
   }
@@ -1332,8 +1362,7 @@ class FirebaseService {
       'dailyStoppedTime': MachineAnalytics.durationMapToJson(
         updatedDailyStoppedTime,
       ),
-      'totalStoppedTime':
-          analytics.totalStoppedTime.inSeconds + additionalTime.inSeconds,
+      // Removed addition to totalStoppedTime to avoid double counting
       'lastUpdated': now.toIso8601String(),
     });
   }
@@ -1529,6 +1558,7 @@ class FirebaseService {
         'yearlyStoppedTime': MachineAnalytics.durationMapToJson(
           yearlyStoppedTime,
         ),
+        // Removed any addition to totalStoppedTime here
         'lastUpdated': now.toIso8601String(),
       });
     }
@@ -1538,14 +1568,68 @@ class FirebaseService {
     String machineId,
     int seconds,
   ) async {
+    // Check if there are any unassigned issues for this machine
+    final unassignedIssuesQuery = await _firestore
+        .collection('issues')
+        .where('machineId', isEqualTo: machineId)
+        .where('assignedMaintenanceId', isEqualTo: null)
+        .get();
+
     final analytics = await getMachineAnalytics(machineId);
     if (analytics == null) return;
+
     final now = DateTime.now();
-    await updateMachineAnalytics(machineId, {
-      'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
-      'stoppedReadyForWorkTime':
-          analytics.stoppedReadyForWorkTime.inSeconds + seconds,
-      'lastUpdated': now.toIso8601String(),
-    });
+
+    if (unassignedIssuesQuery.docs.isNotEmpty) {
+      // There are unassigned issues - increment maintenance in progress time
+      print(
+        'Unassigned issues exist for machine $machineId, incrementing maintenanceInProgressTime',
+      );
+      await updateMachineAnalytics(machineId, {
+        'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
+        'maintenanceInProgressTime':
+            analytics.maintenanceInProgressTime.inSeconds + seconds,
+        'lastUpdated': now.toIso8601String(),
+      });
+    } else {
+      // No unassigned issues - increment stopped ready for work time
+      print(
+        'No unassigned issues for machine $machineId, incrementing stopped ready for work time',
+      );
+      await updateMachineAnalytics(machineId, {
+        'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
+        'stoppedReadyForWorkTime':
+            analytics.stoppedReadyForWorkTime.inSeconds + seconds,
+        'lastUpdated': now.toIso8601String(),
+      });
+    }
+  }
+
+  /// Returns true if there is at least one unassigned issue for the machine
+  static Future<bool> hasUnassignedIssue(String machineId) async {
+    final query = await _firestore
+        .collection('issues')
+        .where('machineId', isEqualTo: machineId)
+        .where('assignedMaintenanceId', isEqualTo: null)
+        .get();
+    return query.docs.isNotEmpty;
+  }
+
+  static Future<void> incrementMaintenanceInProgressTimeIfAssigned(
+    String machineId,
+    int seconds,
+  ) async {
+    // Check if there is an assigned, unresolved issue for this machine
+    final assignedIssue = await getAssignedUnresolvedIssue(machineId);
+    final analytics = await getMachineAnalytics(machineId);
+    if (assignedIssue != null && analytics != null) {
+      final now = DateTime.now();
+      await updateMachineAnalytics(machineId, {
+        'maintenanceInProgressTime':
+            analytics.maintenanceInProgressTime.inSeconds + seconds,
+        'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
+        'lastUpdated': now.toIso8601String(),
+      });
+    }
   }
 }

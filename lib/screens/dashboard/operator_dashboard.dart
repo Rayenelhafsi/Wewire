@@ -9,6 +9,7 @@ import '../../models/session_model.dart';
 import '../../models/machine_analytics_model.dart';
 import '../../services/firebase_service.dart';
 import '../../screens/chat/chat_screen.dart';
+import '../../services/issue_assignment_listener.dart';
 
 class OperatorDashboard extends StatefulWidget {
   final app_models.User user;
@@ -29,7 +30,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
   Timer? _analyticsUpdateTimer;
   Timer? _workingTimeRealtimeTimer;
   Timer? _stoppedTimeRealtimeTimer;
-  int _workingTimeSeconds = 0;
+  Timer? _maintenanceCheckTimer;
   StreamSubscription<String>? _globalScanSubscription;
   StreamSubscription<String>?
   _rfidSubscription; // Add field for RFID subscription
@@ -39,11 +40,14 @@ class _OperatorDashboardState extends State<OperatorDashboard>
 
   String? _rfidMismatchMessage; // New state for mismatch message
 
+  IssueAssignmentListener? _issueAssignmentListener;
+
   // Store all subscriptions to cancel on dispose
   final List<StreamSubscription> _subscriptions = [];
 
   bool _isCurrentlyWorking = false;
-  bool analyticsUpdatesEnabled = true; // Add this field to track analytics updates
+  bool analyticsUpdatesEnabled =
+      true; // Add this field to track analytics updates
 
   @override
   void initState() {
@@ -61,6 +65,8 @@ class _OperatorDashboardState extends State<OperatorDashboard>
     _analyticsUpdateTimer?.cancel();
     _workingTimeRealtimeTimer?.cancel();
     _stoppedTimeRealtimeTimer?.cancel();
+    _maintenanceCheckTimer?.cancel();
+    _issueAssignmentListener?.dispose();
     // Cancel all stored subscriptions
     for (final sub in _subscriptions) {
       sub.cancel();
@@ -264,7 +270,6 @@ class _OperatorDashboardState extends State<OperatorDashboard>
               // Add a small delay to allow the listener to be set up before processing scans
               // This helps avoid processing cached/previous scans
               bool isListeningActive = false;
-              late StreamSubscription<String> subscription;
 
               _rfidSubscription?.cancel(); // Cancel any existing subscription
               _rfidSubscription = FirebaseService.listenForRfidTagScans(machineId).listen((
@@ -519,7 +524,6 @@ class _OperatorDashboardState extends State<OperatorDashboard>
         _currentlyWorkingMachineId = machine.id;
         _currentSessionId = sessionId;
         _sessionStartTime = startTime;
-        _workingTimeSeconds = 0;
         _isCurrentlyWorking = true;
       });
 
@@ -708,7 +712,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
           timer,
         ) async {
           if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
-            await FirebaseService.incrementStoppedTimesRealtime(
+            await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
               _currentlyWorkingMachineId!,
               1,
             );
@@ -786,6 +790,14 @@ class _OperatorDashboardState extends State<OperatorDashboard>
   }
 
   void _reportIssue(Machine machine) {
+    debugPrint('DEBUG: _reportIssue called for machine: ${machine.id}');
+    debugPrint(
+      'DEBUG: _currentlyWorkingMachineId before reporting: $_currentlyWorkingMachineId',
+    );
+    _currentlyWorkingMachineId = machine.id;
+    debugPrint(
+      'DEBUG: _currentlyWorkingMachineId set to: $_currentlyWorkingMachineId',
+    );
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     IssuePriority? selectedPriority;
@@ -895,11 +907,36 @@ class _OperatorDashboardState extends State<OperatorDashboard>
               // Save to Firestore
               try {
                 await FirebaseService.saveIssue(newIssue);
-
-                // Update machine analytics - machine is now stopped without maintenance
-                await FirebaseService.updateStoppedWithoutMaintenanceTime(
-                  machine.id,
-                  Duration.zero, // Start tracking from now
+                debugPrint('DEBUG: Issue saved for machine: ${machine.id}');
+                // When reporting an issue, do NOT start the maintenance timer here.
+                // Instead, timer should start only when the issue is assigned to a technician.
+                // Remove timer start logic from here.
+                _issueAssignmentListener?.dispose();
+                _issueAssignmentListener = IssueAssignmentListener(
+                  issueId: newIssue.id,
+                  onAssigned: () {
+                    debugPrint('DEBUG: Issue assigned! _currentlyWorkingMachineId: $_currentlyWorkingMachineId');
+                    // Start maintenance timer when assigned
+                    _stoppedTimeRealtimeTimer?.cancel();
+                    _stoppedTimeRealtimeTimer = Timer.periodic(
+                      const Duration(seconds: 1),
+                      (timer) async {
+                        debugPrint('DEBUG: Timer tick. _currentlyWorkingMachineId: $_currentlyWorkingMachineId');
+                        if (_currentlyWorkingMachineId != null &&
+                            analyticsUpdatesEnabled) {
+                          await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
+                            _currentlyWorkingMachineId!,
+                            1,
+                          );
+                        }
+                      },
+                    );
+                  },
+                  onResolved: () {
+                    // Stop maintenance timer when resolved
+                    _stoppedTimeRealtimeTimer?.cancel();
+                    _stoppedTimeRealtimeTimer = null;
+                  },
                 );
 
                 Navigator.pop(context);
@@ -924,7 +961,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
     );
   }
 
-  void _toggleAnalyticsUpdates(bool enabled) {
+  void _toggleAnalyticsUpdates(bool enabled) async {
     setState(() {
       analyticsUpdatesEnabled = enabled;
     });
@@ -932,7 +969,53 @@ class _OperatorDashboardState extends State<OperatorDashboard>
       _workingTimeRealtimeTimer?.cancel();
       _stoppedTimeRealtimeTimer?.cancel();
       _analyticsUpdateTimer?.cancel();
+      // Remove maintenance check timer logic
+    } else {
+      // If there is an assigned (but unresolved) issue for the current machine, restart the timer
+      if (_currentlyWorkingMachineId != null) {
+        // Query Firestore for an assigned, unresolved issue for this machine
+        final assignedIssue = await FirebaseService.getAssignedUnresolvedIssue(
+          _currentlyWorkingMachineId!,
+        );
+        if (assignedIssue != null) {
+          _stoppedTimeRealtimeTimer?.cancel();
+          _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
+            timer,
+          ) async {
+            if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
+              await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
+                _currentlyWorkingMachineId!,
+                1,
+              );
+            }
+          });
+        }
+      }
     }
+    // Do not start any stopped time timer here if no assigned unresolved issue
+  }
+
+  void startMaintenanceTimerForIssue(String issueId, String machineId) {
+    _stoppedTimeRealtimeTimer?.cancel();
+    _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) async {
+      if (analyticsUpdatesEnabled) {
+        await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
+          machineId,
+          1,
+        );
+      }
+    });
+    _issueAssignmentListener?.dispose();
+    _issueAssignmentListener = IssueAssignmentListener(
+      issueId: issueId,
+      onAssigned: () {}, // Do nothing on assign
+      onResolved: () {
+        _stoppedTimeRealtimeTimer?.cancel();
+        _stoppedTimeRealtimeTimer = null;
+      },
+    );
   }
 
   @override
@@ -1011,9 +1094,14 @@ class _OperatorDashboardState extends State<OperatorDashboard>
               ),
               actions: [
                 IconButton(
-                  icon: Icon(analyticsUpdatesEnabled ? Icons.pause : Icons.play_arrow),
-                  tooltip: analyticsUpdatesEnabled ? 'Stop Analytics Updates' : 'Start Analytics Updates',
-                  onPressed: () => _toggleAnalyticsUpdates(!analyticsUpdatesEnabled),
+                  icon: Icon(
+                    analyticsUpdatesEnabled ? Icons.pause : Icons.play_arrow,
+                  ),
+                  tooltip: analyticsUpdatesEnabled
+                      ? 'Stop Analytics Updates'
+                      : 'Start Analytics Updates',
+                  onPressed: () =>
+                      _toggleAnalyticsUpdates(!analyticsUpdatesEnabled),
                 ),
               ],
             ),
