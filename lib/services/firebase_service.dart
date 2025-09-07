@@ -1006,6 +1006,18 @@ class FirebaseService {
     return null;
   }
 
+  /// Returns all unresolved issues for the given machine (status != resolved && status != closed)
+  static Future<List<Issue>> getUnresolvedIssuesForMachine(
+    String machineId,
+  ) async {
+    final query = await _firestore
+        .collection('issues')
+        .where('machineId', isEqualTo: machineId)
+        .where('status', whereNotIn: ['resolved', 'closed'])
+        .get();
+    return query.docs.map((doc) => Issue.fromJson(doc.data())).toList();
+  }
+
   // Admin operations - adminwewire collection (stored by UID)
   static Future<void> saveAdmin(
     String uid,
@@ -1568,41 +1580,18 @@ class FirebaseService {
     String machineId,
     int seconds,
   ) async {
-    // Check if there are any unassigned issues for this machine
-    final unassignedIssuesQuery = await _firestore
-        .collection('issues')
-        .where('machineId', isEqualTo: machineId)
-        .where('assignedMaintenanceId', isEqualTo: null)
-        .get();
-
     final analytics = await getMachineAnalytics(machineId);
     if (analytics == null) return;
 
     final now = DateTime.now();
 
-    if (unassignedIssuesQuery.docs.isNotEmpty) {
-      // There are unassigned issues - increment maintenance in progress time
-      print(
-        'Unassigned issues exist for machine $machineId, incrementing maintenanceInProgressTime',
-      );
-      await updateMachineAnalytics(machineId, {
-        'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
-        'maintenanceInProgressTime':
-            analytics.maintenanceInProgressTime.inSeconds + seconds,
-        'lastUpdated': now.toIso8601String(),
-      });
-    } else {
-      // No unassigned issues - increment stopped ready for work time
-      print(
-        'No unassigned issues for machine $machineId, incrementing stopped ready for work time',
-      );
-      await updateMachineAnalytics(machineId, {
-        'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
-        'stoppedReadyForWorkTime':
-            analytics.stoppedReadyForWorkTime.inSeconds + seconds,
-        'lastUpdated': now.toIso8601String(),
-      });
-    }
+    // Always increment stoppedReadyForWorkTime and totalStoppedTime
+    await updateMachineAnalytics(machineId, {
+      'totalStoppedTime': analytics.totalStoppedTime.inSeconds + seconds,
+      'stoppedReadyForWorkTime':
+          analytics.stoppedReadyForWorkTime.inSeconds + seconds,
+      'lastUpdated': now.toIso8601String(),
+    });
   }
 
   /// Returns true if there is at least one unassigned issue for the machine

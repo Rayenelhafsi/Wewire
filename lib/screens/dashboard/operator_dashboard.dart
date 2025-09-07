@@ -703,19 +703,45 @@ class _OperatorDashboardState extends State<OperatorDashboard>
           _currentlyWorkingMachineId ?? '',
           workingDuration,
         );
-        await FirebaseService.updateStoppedReadyForWorkTime(
-          _currentlyWorkingMachineId ?? '',
-          Duration.zero,
-        );
-        // Start stopped time and stopped ready for work time in realtime
-        _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
-          timer,
-        ) async {
-          if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
-            await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
-              _currentlyWorkingMachineId!,
-              1,
+
+        // Check if there are any unresolved issues for this machine
+        final unresolvedIssues =
+            await FirebaseService.getUnresolvedIssuesForMachine(
+              _currentlyWorkingMachineId ?? '',
             );
+        // If there are NO unresolved issues, increment stoppedReadyForWorkTime and totalStoppedTime
+        if (unresolvedIssues.isEmpty) {
+          await FirebaseService.updateStoppedReadyForWorkTime(
+            _currentlyWorkingMachineId ?? '',
+            workingDuration,
+          );
+          // Also increment totalStoppedTime
+          final analytics = await FirebaseService.getMachineAnalytics(
+            _currentlyWorkingMachineId ?? '',
+          );
+          if (analytics != null) {
+            await FirebaseService.updateMachineAnalytics(
+              _currentlyWorkingMachineId ?? '',
+              {
+                'totalStoppedTime':
+                    analytics.totalStoppedTime.inSeconds +
+                    workingDuration.inSeconds,
+                'lastUpdated': DateTime.now().toIso8601String(),
+              },
+            );
+          }
+        }
+
+        // Start stopped time and stopped ready for work time in realtime
+        _stoppedTimeRealtimeTimer?.cancel();
+        _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+          if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
+            final assignedIssue = await FirebaseService.getAssignedUnresolvedIssue(_currentlyWorkingMachineId!);
+            if (assignedIssue != null) {
+              await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(_currentlyWorkingMachineId!, 1);
+            } else {
+              await FirebaseService.incrementStoppedTimesRealtime(_currentlyWorkingMachineId!, 1);
+            }
           }
         });
 
@@ -915,13 +941,17 @@ class _OperatorDashboardState extends State<OperatorDashboard>
                 _issueAssignmentListener = IssueAssignmentListener(
                   issueId: newIssue.id,
                   onAssigned: () {
-                    debugPrint('DEBUG: Issue assigned! _currentlyWorkingMachineId: $_currentlyWorkingMachineId');
+                    debugPrint(
+                      'DEBUG: Issue assigned! _currentlyWorkingMachineId: $_currentlyWorkingMachineId',
+                    );
                     // Start maintenance timer when assigned
                     _stoppedTimeRealtimeTimer?.cancel();
                     _stoppedTimeRealtimeTimer = Timer.periodic(
                       const Duration(seconds: 1),
                       (timer) async {
-                        debugPrint('DEBUG: Timer tick. _currentlyWorkingMachineId: $_currentlyWorkingMachineId');
+                        debugPrint(
+                          'DEBUG: Timer tick. _currentlyWorkingMachineId: $_currentlyWorkingMachineId',
+                        );
                         if (_currentlyWorkingMachineId != null &&
                             analyticsUpdatesEnabled) {
                           await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
