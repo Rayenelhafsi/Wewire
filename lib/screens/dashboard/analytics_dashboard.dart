@@ -48,6 +48,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   bool _updatesActive = false; // Track if updates are active
   Timer? _updateTimer; // Timer for periodic updates
 
+  // New state variable for toggle between time and percentage
+  bool _showPercentage = false; // default to time display
+
   @override
   void initState() {
     super.initState();
@@ -1020,6 +1023,56 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         ? (filteredStoppedTime.inSeconds / totalTime.inSeconds * 100)
         : 0;
 
+    // Prepare data source based on toggle state
+    List<ChartData> chartData;
+    if (_showPercentage) {
+      final totalSeconds = totalTime.inSeconds > 0 ? totalTime.inSeconds : 1;
+      chartData = [
+        ChartData(
+          'Working',
+          (filteredWorkingTime.inSeconds / totalSeconds * 100),
+          Colors.green,
+        ),
+        ChartData(
+          'Stopped',
+          (filteredStoppedTime.inSeconds / totalSeconds * 100),
+          Colors.orange,
+        ),
+        ChartData(
+          'Maintenance',
+          (filteredMaintenanceTime.inSeconds / totalSeconds * 100),
+          Colors.blue,
+        ),
+        ChartData(
+          'Stopped (No Maintenance)',
+          (filteredStoppedWithoutMaintenance.inSeconds / totalSeconds * 100),
+          Colors.red,
+        ),
+        ChartData(
+          'Stopped Ready For Work',
+          (filteredStoppedReadyForWork.inSeconds / totalSeconds * 100),
+          Colors.purple,
+        ),
+      ];
+    } else {
+      double toHours(Duration d) => d.inSeconds / 3600.0;
+      chartData = [
+        ChartData('Working', toHours(filteredWorkingTime), Colors.green),
+        ChartData('Stopped', toHours(filteredStoppedTime), Colors.orange),
+        ChartData('Maintenance', toHours(filteredMaintenanceTime), Colors.blue),
+        ChartData(
+          'Stopped (No Maintenance)',
+          toHours(filteredStoppedWithoutMaintenance),
+          Colors.red,
+        ),
+        ChartData(
+          'Stopped Ready For Work',
+          toHours(filteredStoppedReadyForWork),
+          Colors.purple,
+        ),
+      ];
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1032,47 +1085,62 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             ),
             const SizedBox(height: 10),
 
+            // ToggleButtons for Time/Percentage
+            ToggleButtons(
+              isSelected: [_showPercentage == false, _showPercentage == true],
+              onPressed: (index) {
+                setState(() {
+                  _showPercentage = index == 1;
+                });
+              },
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('Time'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('Percentage'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
             // Machine Time Pie Chart
             SizedBox(
               height: 300,
               child: SfCircularChart(
-                title: ChartTitle(text: 'Machine Time Distribution'),
+                title: ChartTitle(
+                  text:
+                      'Machine Time Distribution' +
+                      (_showPercentage ? ' (Percentage)' : ' (Time)'),
+                ),
                 legend: Legend(isVisible: true),
                 series: <CircularSeries<ChartData, String>>[
                   PieSeries<ChartData, String>(
-                    dataSource: [
-                      ChartData(
-                        'Working',
-                        workingPercentage.toDouble(),
-                        Colors.green,
-                      ),
-                      ChartData(
-                        'Stopped',
-                        stoppedPercentage.toDouble(),
-                        Colors.orange,
-                      ),
-                      ChartData(
-                        'Maintenance',
-                        filteredMaintenanceTime.inHours.toDouble(),
-                        Colors.blue,
-                      ),
-                      ChartData(
-                        'Stopped (No Maintenance)',
-                        filteredStoppedWithoutMaintenance.inHours.toDouble(),
-                        Colors.red,
-                      ),
-                      ChartData(
-                        'Stopped Ready For Work',
-                        filteredStoppedReadyForWork.inHours.toDouble(),
-                        Colors.purple,
-                      ),
-                    ],
+                    dataSource: chartData,
                     xValueMapper: (ChartData data, _) => data.category,
                     yValueMapper: (ChartData data, _) => data.value,
                     pointColorMapper: (ChartData data, _) => data.color,
                     dataLabelSettings: const DataLabelSettings(isVisible: true),
-                    dataLabelMapper: (ChartData data, _) =>
-                        '${data.value.toStringAsFixed(1)}%',
+                    dataLabelMapper: (ChartData data, _) => _showPercentage
+                        ? '${data.value.toStringAsFixed(1)}%'
+                        : (() {
+                            if (data.category == 'Working') {
+                              return _formatDuration(filteredWorkingTime);
+                            } else if (data.category == 'Stopped') {
+                              return _formatDuration(filteredStoppedTime);
+                            } else if (data.category == 'Maintenance') {
+                              return _formatDuration(filteredMaintenanceTime);
+                            } else if (data.category == 'Stopped (No Maintenance)') {
+                              return _formatDuration(filteredStoppedWithoutMaintenance);
+                            } else if (data.category == 'Stopped Ready For Work') {
+                              return _formatDuration(filteredStoppedReadyForWork);
+                            } else {
+                              return '';
+                            }
+                          })(),
                   ),
                 ],
               ),
