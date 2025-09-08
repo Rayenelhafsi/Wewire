@@ -734,18 +734,39 @@ class _OperatorDashboardState extends State<OperatorDashboard>
 
         // Start stopped time and stopped ready for work time in realtime
         _stoppedTimeRealtimeTimer?.cancel();
-        _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
+          timer,
+        ) async {
           if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
-            final assignedIssue = await FirebaseService.getAssignedUnresolvedIssue(_currentlyWorkingMachineId!);
-            if (assignedIssue != null) {
-              await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(_currentlyWorkingMachineId!, 1);
+            // Get all unresolved issues
+            final unresolvedIssues =
+                await FirebaseService.getUnresolvedIssuesForMachine(
+                  _currentlyWorkingMachineId!,
+                );
+            // Check for assigned unresolved issues
+            final assignedUnresolvedList = unresolvedIssues
+                .where((issue) => issue.assignedMaintenanceId != null)
+                .toList();
+            if (assignedUnresolvedList.isNotEmpty) {
+              await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
+                _currentlyWorkingMachineId!,
+                1,
+              );
             } else {
-              final unresolvedIssues = await FirebaseService.getUnresolvedIssuesForMachine(_currentlyWorkingMachineId!);
-              final hasUnassignedUnresolved = unresolvedIssues.any((issue) => issue.assignedMaintenanceId == null);
-              if (hasUnassignedUnresolved) {
-                await FirebaseService.updateStoppedWithoutMaintenanceTime(_currentlyWorkingMachineId!, const Duration(seconds: 1));
+              // Check for unassigned unresolved issues
+              final unassignedUnresolvedList = unresolvedIssues
+                  .where((issue) => issue.assignedMaintenanceId == null)
+                  .toList();
+              if (unassignedUnresolvedList.isNotEmpty) {
+                await FirebaseService.updateStoppedWithoutMaintenanceTime(
+                  _currentlyWorkingMachineId!,
+                  const Duration(seconds: 1),
+                );
               } else {
-                await FirebaseService.incrementStoppedTimesRealtime(_currentlyWorkingMachineId!, 1);
+                await FirebaseService.incrementStoppedTimesRealtime(
+                  _currentlyWorkingMachineId!,
+                  1,
+                );
               }
             }
           }
