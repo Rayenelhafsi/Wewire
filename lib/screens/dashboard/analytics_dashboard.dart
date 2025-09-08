@@ -9,6 +9,35 @@ import '../../models/technician_model.dart';
 import '../../models/machine_analytics_model.dart';
 import '../../services/firebase_service.dart';
 
+class ChartData {
+  final String category;
+  final double value;
+  final Color color;
+
+  ChartData(this.category, this.value, this.color);
+}
+
+class OperatorTimeData {
+  final String operatorName;
+  final double hours;
+
+  OperatorTimeData(this.operatorName, this.hours);
+}
+
+class TechnicianPerformanceData {
+  final String technicianName;
+  final double value;
+
+  TechnicianPerformanceData(this.technicianName, this.value);
+}
+
+class OperatorHourlyData {
+  final String hour;
+  final double hours;
+
+  OperatorHourlyData(this.hour, this.hours);
+}
+
 class AnalyticsDashboard extends StatefulWidget {
   const AnalyticsDashboard({super.key});
 
@@ -51,10 +80,23 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   // New state variable for toggle between time and percentage
   bool _showPercentage = false; // default to time display
 
+  // Variable to control Firestore writes
+  bool analyticsUpdatesEnabled = false;
+
   @override
   void initState() {
     super.initState();
-    // Do not start listeners by default
+    // Load technicians data immediately
+    _loadTechnicians();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure technicians list is available when widget is built
+    if (_technicians.isEmpty && _updatesActive) {
+      _setupStreamListeners();
+    }
   }
 
   @override
@@ -66,6 +108,16 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     _issuesSubscription?.cancel();
     _updateTimer?.cancel();
     super.dispose();
+  }
+
+  void _loadTechnicians() {
+    _techniciansSubscription = FirebaseService.getAllTechnicians().listen((
+      technicians,
+    ) {
+      setState(() {
+        _technicians = technicians;
+      });
+    });
   }
 
   void _setupStreamListeners() {
@@ -1133,10 +1185,16 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                               return _formatDuration(filteredStoppedTime);
                             } else if (data.category == 'Maintenance') {
                               return _formatDuration(filteredMaintenanceTime);
-                            } else if (data.category == 'Stopped (No Maintenance)') {
-                              return _formatDuration(filteredStoppedWithoutMaintenance);
-                            } else if (data.category == 'Stopped Ready For Work') {
-                              return _formatDuration(filteredStoppedReadyForWork);
+                            } else if (data.category ==
+                                'Stopped (No Maintenance)') {
+                              return _formatDuration(
+                                filteredStoppedWithoutMaintenance,
+                              );
+                            } else if (data.category ==
+                                'Stopped Ready For Work') {
+                              return _formatDuration(
+                                filteredStoppedReadyForWork,
+                              );
                             } else {
                               return '';
                             }
@@ -1175,74 +1233,419 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildOperatorStatisticsSection(Map<String, dynamic> stats) {
-    final operatorTime = stats['operatorTime'] as Map<String, Duration>;
+    // Fix filter: if _selectedOperatorId is null, show all operators
+    // Aggregate operator working time accordingly
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Operator Statistics',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    // Helper: format duration to string
+    String formatDuration(Duration d) {
+      if (d.inHours > 0) {
+        return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+      } else if (d.inMinutes > 0) {
+        return '${d.inMinutes}m ${d.inSeconds.remainder(60)}s';
+      } else {
+        return '${d.inSeconds}s';
+      }
+    }
+
+    // Aggregate operator working time based on selected time period
+    if (_selectedTimePeriod == TimePeriod.all) {
+      // Show pie chart of total working time per operator
+      final operatorTime = stats['operatorTime'] as Map<String, Duration>;
+      final pieData = operatorTime.entries.map((e) {
+        final operator = _operators.firstWhere(
+          (op) => op.matricule == e.key,
+          orElse: () => Operator(matricule: e.key, name: 'Unknown'),
+        );
+        // Use fractional hours with minutes and seconds converted to fraction
+        double hours = e.value.inSeconds / 3600.0;
+        return ChartData(operator.name, hours, Colors.blue);
+      }).toList();
+
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Operator Statistics (Pie Chart)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              if (pieData.isNotEmpty)
+                SizedBox(
+                  height: 300,
+                  child: SfCircularChart(
+                    title: ChartTitle(
+                      text: 'Operator Working Time Distribution',
+                    ),
+                    legend: Legend(isVisible: true),
+                    series: <CircularSeries<ChartData, String>>[
+                      PieSeries<ChartData, String>(
+                        dataSource: pieData,
+                        xValueMapper: (ChartData data, _) => data.category,
+                        yValueMapper: (ChartData data, _) => data.value,
+                        dataLabelSettings: const DataLabelSettings(
+                          isVisible: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 10),
+              ...operatorTime.entries.map((entry) {
+                final operator = _operators.firstWhere(
+                  (op) => op.matricule == entry.key,
+                  orElse: () => Operator(matricule: entry.key, name: 'Unknown'),
+                );
+                return _buildStatCard(
+                  '${operator.name} Working Time',
+                  formatDuration(entry.value),
+                );
+              }).toList(),
+              _buildStatCard(
+                'Total Operator Sessions',
+                stats['totalOperatorSessions'].toString(),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (_selectedTimePeriod == TimePeriod.day) {
+      // Show bar chart with 24 hours on horizontal axis
+      // Aggregate operator working time by hour for the selected day
+
+      // Prepare data: Map operator name -> List<double> of 24 hours working time in hours
+      final operatorTime = stats['operatorTime'] as Map<String, Duration>;
+      // We need to aggregate sessions by hour for each operator for the selected day
+      // So we will build a map: operator matricule -> List<double> (24 length)
+      Map<String, List<double>> operatorHourlyData = {};
+
+      // Initialize with zeros
+      for (var op in _operators) {
+        operatorHourlyData[op.matricule] = List.filled(24, 0.0);
+      }
+
+      // Aggregate sessions by hour for selected day
+      DateTime dayStart = _selectedDay ?? DateTime.now();
+      DateTime dayEnd = dayStart.add(const Duration(days: 1));
+
+      for (var session in _sessions) {
+        if (session.endTime == null) continue;
+        // Check if session overlaps with the selected day
+        if (session.startTime.isBefore(dayEnd) &&
+            session.endTime!.isAfter(dayStart)) {
+          if (_selectedOperatorId == null ||
+              session.operatorMatricule == _selectedOperatorId) {
+            // Calculate overlap of session with each hour in the day
+            DateTime sessionStart = session.startTime.isBefore(dayStart)
+                ? dayStart
+                : session.startTime;
+            DateTime sessionEnd = session.endTime!.isAfter(dayEnd)
+                ? dayEnd
+                : session.endTime!;
+            for (int hour = 0; hour < 24; hour++) {
+              DateTime hourStart = DateTime(
+                dayStart.year,
+                dayStart.month,
+                dayStart.day,
+                hour,
+              );
+              DateTime hourEnd = hourStart.add(const Duration(hours: 1));
+              DateTime overlapStart = sessionStart.isAfter(hourStart)
+                  ? sessionStart
+                  : hourStart;
+              DateTime overlapEnd = sessionEnd.isBefore(hourEnd)
+                  ? sessionEnd
+                  : hourEnd;
+              if (overlapEnd.isAfter(overlapStart)) {
+                Duration overlapDuration = overlapEnd.difference(overlapStart);
+                double hours = overlapDuration.inSeconds / 3600.0;
+                operatorHourlyData[session.operatorMatricule]?[hour] += hours;
+              }
+            }
+          }
+        }
+      }
+
+      // Prepare chart data: For each operator, create a series of 24 data points
+      List<CartesianSeries<OperatorHourlyData, String>> seriesList = [];
+      for (var op in _operators) {
+        if (_selectedOperatorId != null && op.matricule != _selectedOperatorId)
+          continue;
+        List<OperatorHourlyData> data = [];
+        for (int h = 0; h < 24; h++) {
+          data.add(
+            OperatorHourlyData(
+              h.toString(),
+              operatorHourlyData[op.matricule]?[h] ?? 0.0,
             ),
-            const SizedBox(height: 10),
+          );
+        }
+        seriesList.add(
+          StackedColumnSeries<OperatorHourlyData, String>(
+            dataSource: data,
+            xValueMapper: (OperatorHourlyData d, _) => d.hour,
+            yValueMapper: (OperatorHourlyData d, _) => d.hours,
+            name: op.name,
+            dataLabelSettings: const DataLabelSettings(isVisible: false),
+          ),
+        );
+      }
 
-            // Operator Time Bar Chart
-            if (operatorTime.isNotEmpty)
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Operator Statistics (Hourly Bar Chart)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
               SizedBox(
                 height: 300,
                 child: SfCartesianChart(
-                  title: ChartTitle(text: 'Operator Working Time'),
-                  primaryXAxis: CategoryAxis(),
-                  primaryYAxis: NumericAxis(title: AxisTitle(text: 'Hours')),
-                  series: <CartesianSeries<OperatorTimeData, String>>[
-                    BarSeries<OperatorTimeData, String>(
-                      dataSource: operatorTime.entries.map((e) {
-                        final operator = _operators.firstWhere(
-                          (op) => op.matricule == e.key,
-                          orElse: () =>
-                              Operator(matricule: e.key, name: 'Unknown'),
-                        );
-                        return OperatorTimeData(
-                          operator.name,
-                          e.value.inHours.toDouble(),
-                        );
-                      }).toList(),
-                      xValueMapper: (OperatorTimeData data, _) =>
-                          data.operatorName,
-                      yValueMapper: (OperatorTimeData data, _) => data.hours,
-                      dataLabelSettings: const DataLabelSettings(
-                        isVisible: true,
+                  title: ChartTitle(text: 'Operator Working Time by Hour'),
+                  primaryXAxis: CategoryAxis(
+                    title: AxisTitle(text: 'Hour of Day'),
+                    interval: 1,
+                  ),
+                  primaryYAxis: NumericAxis(
+                    title: AxisTitle(text: 'Hours'),
+                    minimum: 0,
+                  ),
+                  legend: Legend(isVisible: true),
+                  series: seriesList,
+                ),
+              ),
+              _buildStatCard(
+                'Total Operator Sessions',
+                stats['totalOperatorSessions'].toString(),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (_selectedTimePeriod == TimePeriod.year) {
+      // Show calendar with hover tooltips for total working time per date
+
+      // Aggregate working time per date for the selected year
+      int year = _selectedYear ?? DateTime.now().year;
+      Map<String, Duration> workingTimePerDate = {};
+
+      String formatDateKey(DateTime date) {
+        return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      }
+
+      for (var session in _sessions) {
+        if (session.startTime.year == year && session.endTime != null) {
+          String dateKey = formatDateKey(
+            DateTime(
+              session.startTime.year,
+              session.startTime.month,
+              session.startTime.day,
+            ),
+          );
+          if (_selectedOperatorId == null ||
+              session.operatorMatricule == _selectedOperatorId) {
+            Duration duration = session.endTime!.difference(session.startTime);
+            workingTimePerDate.update(
+              dateKey,
+              (existing) => existing + duration,
+              ifAbsent: () => duration,
+            );
+          }
+        }
+      }
+
+      // Calculate initial scroll offset to focus on today's date if operator selected
+      final today = DateTime.now();
+      final daysFromYearStart = today.difference(DateTime(year)).inDays;
+      final scrollToIndex =
+          (_selectedOperatorId != null &&
+              daysFromYearStart >= 0 &&
+              daysFromYearStart < 365)
+          ? daysFromYearStart
+          : 0;
+
+      final ScrollController scrollController = ScrollController(
+        initialScrollOffset:
+            scrollToIndex * 50.0, // Approximate item height + spacing
+      );
+
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Operator Statistics (Yearly Calendar)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 400,
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_left),
+                          onPressed: () {
+                            setState(() {
+                              _selectedYear = (_selectedYear ?? year) - 1;
+                            });
+                          },
+                        ),
+                        Text(
+                          'Year: ${_selectedYear ?? year}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_right),
+                          onPressed: () {
+                            setState(() {
+                              _selectedYear = (_selectedYear ?? year) + 1;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: GridView.builder(
+                        controller: scrollController,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 7, // 7 days per week
+                              mainAxisSpacing: 4,
+                              crossAxisSpacing: 4,
+                              childAspectRatio: 1,
+                            ),
+                        itemCount: 365,
+                        itemBuilder: (context, index) {
+                          DateTime date = DateTime(
+                            year,
+                          ).add(Duration(days: index));
+                          String dateKey = formatDateKey(date);
+                          Duration workingTime =
+                              workingTimePerDate[dateKey] ?? Duration.zero;
+                          String tooltip = workingTime > Duration.zero
+                              ? 'Working Time: ${formatDuration(workingTime)}'
+                              : 'No Work';
+
+                          return Tooltip(
+                            message:
+                                '${date.day}/${date.month}/$year\n$tooltip',
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: workingTime > Duration.zero
+                                    ? Colors.green.shade300
+                                    : Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                date.day.toString(),
+                                style: TextStyle(
+                                  color: workingTime > Duration.zero
+                                      ? Colors.black
+                                      : Colors.grey.shade600,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      dataLabelMapper: (OperatorTimeData data, _) =>
-                          '${data.hours.toStringAsFixed(1)}h',
                     ),
                   ],
                 ),
               ),
-
-            const SizedBox(height: 10),
-            ...operatorTime.entries.map((entry) {
-              final operator = _operators.firstWhere(
-                (op) => op.matricule == entry.key,
-                orElse: () => Operator(matricule: entry.key, name: 'Unknown'),
-              );
-              return _buildStatCard(
-                '${operator.name} Working Time',
-                _formatDuration(entry.value),
-              );
-            }).toList(),
-
-            _buildStatCard(
-              'Total Operator Sessions',
-              stats['totalOperatorSessions'].toString(),
-            ),
-          ],
+              _buildStatCard(
+                'Total Operator Sessions',
+                stats['totalOperatorSessions'].toString(),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // Default: show bar chart as before for other time periods
+      final operatorTime = stats['operatorTime'] as Map<String, Duration>;
+
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Operator Statistics',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+
+              // Operator Time Bar Chart
+              if (operatorTime.isNotEmpty)
+                SizedBox(
+                  height: 300,
+                  child: SfCartesianChart(
+                    title: ChartTitle(text: 'Operator Working Time'),
+                    primaryXAxis: CategoryAxis(),
+                    primaryYAxis: NumericAxis(title: AxisTitle(text: 'Hours')),
+                    series: <CartesianSeries<OperatorTimeData, String>>[
+                      BarSeries<OperatorTimeData, String>(
+                        dataSource: operatorTime.entries.map((e) {
+                          final operator = _operators.firstWhere(
+                            (op) => op.matricule == e.key,
+                            orElse: () =>
+                                Operator(matricule: e.key, name: 'Unknown'),
+                          );
+                          // Use fractional hours instead of integer hours
+                          double hours = e.value.inSeconds / 3600.0;
+                          return OperatorTimeData(operator.name, hours);
+                        }).toList(),
+                        xValueMapper: (OperatorTimeData data, _) =>
+                            data.operatorName,
+                        yValueMapper: (OperatorTimeData data, _) => data.hours,
+                        dataLabelSettings: const DataLabelSettings(
+                          isVisible: true,
+                        ),
+                        dataLabelMapper: (OperatorTimeData data, _) =>
+                            '${data.hours.toStringAsFixed(1)}h',
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 10),
+              ...operatorTime.entries.map((entry) {
+                final operator = _operators.firstWhere(
+                  (op) => op.matricule == entry.key,
+                  orElse: () => Operator(matricule: entry.key, name: 'Unknown'),
+                );
+                return _buildStatCard(
+                  '${operator.name} Working Time',
+                  formatDuration(entry.value),
+                );
+              }).toList(),
+
+              _buildStatCard(
+                'Total Operator Sessions',
+                stats['totalOperatorSessions'].toString(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildTechnicianStatisticsSection(Map<String, dynamic> stats) {
@@ -1441,26 +1844,4 @@ extension TimePeriodExtension on TimePeriod {
         return 'year';
     }
   }
-}
-
-class ChartData {
-  final String category;
-  final double value;
-  final Color color;
-
-  ChartData(this.category, this.value, this.color);
-}
-
-class OperatorTimeData {
-  final String operatorName;
-  final double hours;
-
-  OperatorTimeData(this.operatorName, this.hours);
-}
-
-class TechnicianPerformanceData {
-  final String technicianName;
-  final double value;
-
-  TechnicianPerformanceData(this.technicianName, this.value);
 }
