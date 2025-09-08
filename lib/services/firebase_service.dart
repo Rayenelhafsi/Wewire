@@ -1473,18 +1473,8 @@ class FirebaseService {
       'stoppedWithoutMaintenanceTime':
           analytics.stoppedWithoutMaintenanceTime.inSeconds +
           additionalTime.inSeconds,
-      'lastUpdated': now.toIso8601String(),
-    });
-
-    // Recalculate totalStoppedTime
-    final totalStoppedTime =
-        analytics.maintenanceInProgressTime +
-        analytics.stoppedWithoutMaintenanceTime +
-        analytics.stoppedReadyForWorkTime +
-        additionalTime;
-
-    await updateMachineAnalytics(machineId, {
-      'totalStoppedTime': totalStoppedTime.inSeconds,
+      'totalStoppedTime': analytics.totalStoppedTime.inSeconds +
+          additionalTime.inSeconds,
       'lastUpdated': now.toIso8601String(),
     });
   }

@@ -740,7 +740,13 @@ class _OperatorDashboardState extends State<OperatorDashboard>
             if (assignedIssue != null) {
               await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(_currentlyWorkingMachineId!, 1);
             } else {
-              await FirebaseService.incrementStoppedTimesRealtime(_currentlyWorkingMachineId!, 1);
+              final unresolvedIssues = await FirebaseService.getUnresolvedIssuesForMachine(_currentlyWorkingMachineId!);
+              final hasUnassignedUnresolved = unresolvedIssues.any((issue) => issue.assignedMaintenanceId == null);
+              if (hasUnassignedUnresolved) {
+                await FirebaseService.updateStoppedWithoutMaintenanceTime(_currentlyWorkingMachineId!, const Duration(seconds: 1));
+              } else {
+                await FirebaseService.incrementStoppedTimesRealtime(_currentlyWorkingMachineId!, 1);
+              }
             }
           }
         });
