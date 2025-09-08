@@ -1473,8 +1473,8 @@ class FirebaseService {
       'stoppedWithoutMaintenanceTime':
           analytics.stoppedWithoutMaintenanceTime.inSeconds +
           additionalTime.inSeconds,
-      'totalStoppedTime': analytics.totalStoppedTime.inSeconds +
-          additionalTime.inSeconds,
+      'totalStoppedTime':
+          analytics.totalStoppedTime.inSeconds + additionalTime.inSeconds,
       'lastUpdated': now.toIso8601String(),
     });
   }
@@ -1507,11 +1507,7 @@ class FirebaseService {
     });
 
     // Recalculate totalStoppedTime
-    final totalStoppedTime =
-        analytics.maintenanceInProgressTime +
-        analytics.stoppedWithoutMaintenanceTime +
-        analytics.stoppedReadyForWorkTime +
-        additionalTime;
+    final totalStoppedTime = additionalTime;
 
     await updateMachineAnalytics(machineId, {
       'totalStoppedTime': totalStoppedTime.inSeconds,
