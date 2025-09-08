@@ -49,12 +49,61 @@ class _OperatorDashboardState extends State<OperatorDashboard>
   bool analyticsUpdatesEnabled =
       true; // Add this field to track analytics updates
 
+  Map<String, Timer> _machineStoppedTimers = {};
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _fetchLastScannedUidOnInit();
     _setupGlobalScanListener();
+
+    // Start a stopped time timer for each machine if analytics updates are enabled
+    if (analyticsUpdatesEnabled) {
+      FirebaseService.getMachines().listen((machines) {
+        // Cancel any existing timers first
+        _machineStoppedTimers.forEach((_, timer) => timer.cancel());
+        _machineStoppedTimers.clear();
+        for (final machine in machines) {
+          final machineId = machine.id;
+          // Start a timer for each machine
+          _machineStoppedTimers[machineId] = Timer.periodic(
+            const Duration(seconds: 1),
+            (timer) async {
+              if (!mounted || !analyticsUpdatesEnabled) return;
+              final unresolvedIssues =
+                  await FirebaseService.getUnresolvedIssuesForMachine(
+                    machineId,
+                  );
+              final assignedUnresolvedList = unresolvedIssues
+                  .where((issue) => issue.assignedMaintenanceId != null)
+                  .toList();
+              if (assignedUnresolvedList.isNotEmpty) {
+                await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
+                  machineId,
+                  1,
+                );
+              } else {
+                final unassignedUnresolvedList = unresolvedIssues
+                    .where((issue) => issue.assignedMaintenanceId == null)
+                    .toList();
+                if (unassignedUnresolvedList.isNotEmpty) {
+                  await FirebaseService.updateStoppedWithoutMaintenanceTime(
+                    machineId,
+                    const Duration(seconds: 1),
+                  );
+                } else {
+                  await FirebaseService.incrementStoppedTimesRealtime(
+                    machineId,
+                    1,
+                  );
+                }
+              }
+            },
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -71,6 +120,8 @@ class _OperatorDashboardState extends State<OperatorDashboard>
     for (final sub in _subscriptions) {
       sub.cancel();
     }
+    _machineStoppedTimers.forEach((_, timer) => timer.cancel());
+    _machineStoppedTimers.clear();
     super.dispose();
   }
 
@@ -432,11 +483,60 @@ class _OperatorDashboardState extends State<OperatorDashboard>
                     tagUid,
                   );
 
-                  // Start work on machine
-                  await _startWorkOnMachine(
-                    machine,
-                    cableReference,
-                    quantityObjective,
+                  // Prevent multiple sessions and timers when starting work
+                  if (_isCurrentlyWorking)
+                    return; // Already working, ignore duplicate start
+
+                  // Stop all stopped/maintenance timers for this machine
+                  _machineStoppedTimers[machine.id]?.cancel();
+                  _machineStoppedTimers.remove(machine.id);
+                  _stoppedTimeRealtimeTimer?.cancel();
+                  _stoppedTimeRealtimeTimer = null;
+
+                  // Proceed with session creation and working timer only after RFID verification
+                  final startTime = DateTime.now();
+                  final sessionId =
+                      'session_${startTime.millisecondsSinceEpoch}';
+                  final newSession = Session(
+                    id: sessionId,
+                    operatorMatricule: widget.user.id,
+                    technicianMatricule: '',
+                    machineReference: machine.id,
+                    issueTitle: '',
+                    issueDescription: '',
+                    interventionType: InterventionType.none,
+                    startTime: startTime,
+                    status: SessionStatus.inProgress,
+                    cableReference: cableReference,
+                    quantityObjective: quantityObjective,
+                  );
+                  await FirebaseService.createSession(newSession);
+                  setState(() {
+                    _currentlyWorkingMachineId = machine.id;
+                    _currentSessionId = sessionId;
+                    _sessionStartTime = startTime;
+                    _isCurrentlyWorking = true;
+                  });
+
+                  // Start working time timer only
+                  _workingTimeRealtimeTimer?.cancel();
+                  _workingTimeRealtimeTimer = Timer.periodic(
+                    const Duration(seconds: 1),
+                    (timer) async {
+                      if (!mounted || !analyticsUpdatesEnabled) return;
+                      final analytics =
+                          await FirebaseService.getMachineAnalytics(machine.id);
+                      if (analytics != null) {
+                        await FirebaseService.updateMachineAnalytics(
+                          machine.id,
+                          {
+                            'totalWorkingTime':
+                                analytics.totalWorkingTime.inSeconds + 1,
+                            'lastUpdated': DateTime.now().toIso8601String(),
+                          },
+                        );
+                      }
+                    },
                   );
                 } else {
                   print('Ignoring duplicate RFID scan: $tagUid'); // Debug print
@@ -1023,33 +1123,56 @@ class _OperatorDashboardState extends State<OperatorDashboard>
       analyticsUpdatesEnabled = enabled;
     });
     if (!enabled) {
+      // Cancel all machine timers
+      _machineStoppedTimers.forEach((_, timer) => timer.cancel());
+      _machineStoppedTimers.clear();
       _workingTimeRealtimeTimer?.cancel();
       _stoppedTimeRealtimeTimer?.cancel();
       _analyticsUpdateTimer?.cancel();
-      // Remove maintenance check timer logic
     } else {
-      // If there is an assigned (but unresolved) issue for the current machine, restart the timer
-      if (_currentlyWorkingMachineId != null) {
-        // Query Firestore for an assigned, unresolved issue for this machine
-        final assignedIssue = await FirebaseService.getAssignedUnresolvedIssue(
-          _currentlyWorkingMachineId!,
-        );
-        if (assignedIssue != null) {
-          _stoppedTimeRealtimeTimer?.cancel();
-          _stoppedTimeRealtimeTimer = Timer.periodic(const Duration(seconds: 1), (
-            timer,
-          ) async {
-            if (_currentlyWorkingMachineId != null && analyticsUpdatesEnabled) {
-              await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
-                _currentlyWorkingMachineId!,
-                1,
-              );
-            }
-          });
+      // Restart timers for all machines
+      FirebaseService.getMachines().listen((machines) {
+        _machineStoppedTimers.forEach((_, timer) => timer.cancel());
+        _machineStoppedTimers.clear();
+        for (final machine in machines) {
+          final machineId = machine.id;
+          _machineStoppedTimers[machineId] = Timer.periodic(
+            const Duration(seconds: 1),
+            (timer) async {
+              if (!mounted || !analyticsUpdatesEnabled) return;
+              final unresolvedIssues =
+                  await FirebaseService.getUnresolvedIssuesForMachine(
+                    machineId,
+                  );
+              final assignedUnresolvedList = unresolvedIssues
+                  .where((issue) => issue.assignedMaintenanceId != null)
+                  .toList();
+              if (assignedUnresolvedList.isNotEmpty) {
+                await FirebaseService.incrementMaintenanceInProgressTimeIfAssigned(
+                  machineId,
+                  1,
+                );
+              } else {
+                final unassignedUnresolvedList = unresolvedIssues
+                    .where((issue) => issue.assignedMaintenanceId == null)
+                    .toList();
+                if (unassignedUnresolvedList.isNotEmpty) {
+                  await FirebaseService.updateStoppedWithoutMaintenanceTime(
+                    machineId,
+                    const Duration(seconds: 1),
+                  );
+                } else {
+                  await FirebaseService.incrementStoppedTimesRealtime(
+                    machineId,
+                    1,
+                  );
+                }
+              }
+            },
+          );
         }
-      }
+      });
     }
-    // Do not start any stopped time timer here if no assigned unresolved issue
   }
 
   void startMaintenanceTimerForIssue(String issueId, String machineId) {
