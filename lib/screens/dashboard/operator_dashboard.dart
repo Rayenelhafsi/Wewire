@@ -1093,6 +1093,7 @@ class _OperatorDashboardState extends State<OperatorDashboard>
                     // Stop maintenance timer when resolved
                     _stoppedTimeRealtimeTimer?.cancel();
                     _stoppedTimeRealtimeTimer = null;
+                    if (mounted) setState(() {}); // Refresh dashboard
                   },
                 );
 
