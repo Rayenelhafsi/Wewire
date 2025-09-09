@@ -108,7 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/images/logo.png', width: 150, height: 150),
+            Image.asset('assets/images/logo.png', width: 100, height: 150),
             const SizedBox(width: 8),
             Text(
               'Welcome, ${_user!.name}',

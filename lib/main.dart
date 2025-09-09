@@ -56,6 +56,7 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
+        fontFamily: 'TitilliumWeb',
       ),
       home: const SplashScreen(),
       routes: {
