@@ -1361,7 +1361,13 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             xValueMapper: (OperatorHourlyData d, _) => d.hour,
             yValueMapper: (OperatorHourlyData d, _) => d.hours,
             name: op.name,
-            dataLabelSettings: const DataLabelSettings(isVisible: false),
+            dataLabelSettings: const DataLabelSettings(isVisible: true),
+            dataLabelMapper: (OperatorHourlyData d, _) {
+              // Convert fractional hours to Duration for formatting
+              int totalSeconds = (d.hours * 3600).round();
+              Duration duration = Duration(seconds: totalSeconds);
+              return _formatDuration(duration);
+            },
           ),
         );
       }
@@ -1648,8 +1654,12 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                         dataLabelSettings: const DataLabelSettings(
                           isVisible: true,
                         ),
-                        dataLabelMapper: (OperatorTimeData data, _) =>
-                            '${data.hours.toStringAsFixed(1)}h',
+                        dataLabelMapper: (OperatorTimeData data, _) {
+                          // Convert fractional hours back to Duration for formatting
+                          int totalSeconds = (data.hours * 3600).round();
+                          Duration duration = Duration(seconds: totalSeconds);
+                          return _formatDuration(duration);
+                        },
                       ),
                     ],
                   ),
