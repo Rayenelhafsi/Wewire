@@ -59,6 +59,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   DateTime? _weekStartDate;
   DateTime? _weekEndDate;
 
+  // New state variable for selected month in year calendar view
+  int? _selectedMonthInYearView;
+
   List<Machine> _machines = [];
   List<Operator> _operators = [];
   List<Technician> _technicians = [];
@@ -1249,17 +1252,8 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
     // Aggregate operator working time based on selected time period
     if (_selectedTimePeriod == TimePeriod.all) {
-      // Show pie chart of total working time per operator
+      // Remove pie chart when all time period is selected
       final operatorTime = stats['operatorTime'] as Map<String, Duration>;
-      final pieData = operatorTime.entries.map((e) {
-        final operator = _operators.firstWhere(
-          (op) => op.matricule == e.key,
-          orElse: () => Operator(matricule: e.key, name: 'Unknown'),
-        );
-        // Use fractional hours with minutes and seconds converted to fraction
-        double hours = e.value.inSeconds / 3600.0;
-        return ChartData(operator.name, hours, Colors.blue);
-      }).toList();
 
       return Card(
         child: Padding(
@@ -1268,30 +1262,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Operator Statistics (Pie Chart)',
+                'Operator Statistics',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 10),
-              if (pieData.isNotEmpty)
-                SizedBox(
-                  height: 300,
-                  child: SfCircularChart(
-                    title: ChartTitle(
-                      text: 'Operator Working Time Distribution',
-                    ),
-                    legend: Legend(isVisible: true),
-                    series: <CircularSeries<ChartData, String>>[
-                      PieSeries<ChartData, String>(
-                        dataSource: pieData,
-                        xValueMapper: (ChartData data, _) => data.category,
-                        yValueMapper: (ChartData data, _) => data.value,
-                        dataLabelSettings: const DataLabelSettings(
-                          isVisible: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               const SizedBox(height: 10),
               ...operatorTime.entries.map((entry) {
                 final operator = _operators.firstWhere(
@@ -1493,6 +1466,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        // Year navigation left
                         IconButton(
                           icon: const Icon(Icons.arrow_left),
                           onPressed: () {
@@ -1501,13 +1475,56 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                             });
                           },
                         ),
+
+                        // Month navigation left
+                        IconButton(
+                          icon: const Icon(Icons.arrow_left_outlined),
+                          onPressed: () {
+                            setState(() {
+                              if (_selectedMonthInYearView == null) {
+                                _selectedMonthInYearView = 12;
+                              }
+                              _selectedMonthInYearView =
+                                  (_selectedMonthInYearView! - 1) % 12;
+                              if (_selectedMonthInYearView == 0) {
+                                _selectedMonthInYearView = 12;
+                                _selectedYear = (_selectedYear ?? year) - 1;
+                              }
+                            });
+                          },
+                        ),
+
+                        // Display year and month name
                         Text(
-                          'Year: ${_selectedYear ?? year}',
+                          'Year: ${_selectedYear ?? year}' +
+                              (_selectedMonthInYearView != null
+                                  ? ' - ${_monthName(_selectedMonthInYearView!)}'
+                                  : ''),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
+                        // Month navigation right
+                        IconButton(
+                          icon: const Icon(Icons.arrow_right_outlined),
+                          onPressed: () {
+                            setState(() {
+                              if (_selectedMonthInYearView == null) {
+                                _selectedMonthInYearView = 1;
+                              }
+                              _selectedMonthInYearView =
+                                  (_selectedMonthInYearView! + 1) % 13;
+                              if (_selectedMonthInYearView == 0) {
+                                _selectedMonthInYearView = 1;
+                                _selectedYear = (_selectedYear ?? year) + 1;
+                              }
+                            });
+                          },
+                        ),
+
+                        // Year navigation right
                         IconButton(
                           icon: const Icon(Icons.arrow_right),
                           onPressed: () {
@@ -1528,11 +1545,24 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                               crossAxisSpacing: 4,
                               childAspectRatio: 1,
                             ),
-                        itemCount: 365,
+                        itemCount: _selectedMonthInYearView == null
+                            ? 365
+                            : DateTime(
+                                (_selectedYear ?? year),
+                                _selectedMonthInYearView! + 1,
+                                0,
+                              ).day,
                         itemBuilder: (context, index) {
-                          DateTime date = DateTime(
-                            year,
-                          ).add(Duration(days: index));
+                          DateTime date;
+                          if (_selectedMonthInYearView == null) {
+                            date = DateTime(year).add(Duration(days: index));
+                          } else {
+                            date = DateTime(
+                              (_selectedYear ?? year),
+                              _selectedMonthInYearView!,
+                              index + 1,
+                            );
+                          }
                           String dateKey = formatDateKey(date);
                           Duration workingTime =
                               workingTimePerDate[dateKey] ?? Duration.zero;
@@ -1824,6 +1854,27 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     } else {
       return '${duration.inSeconds}s';
     }
+  }
+
+  // Helper method to get month name from month number
+  String _monthName(int month) {
+    const monthNames = [
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    if (month < 1 || month > 12) return '';
+    return monthNames[month];
   }
 }
 
