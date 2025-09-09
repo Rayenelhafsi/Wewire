@@ -48,61 +48,16 @@ void _initializeNotifications() async {
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
-  // Check if user has an active session (for operators/technicians)
-  Future<bool> _checkUserSession() async {
-    try {
-      final user = await SessionService.getCurrentUser();
-      return user != null;
-    } catch (e) {
-      debugPrint('Error checking user session: $e');
-      return false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Maintenance Communication System',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: FutureBuilder<bool>(
-        future: _checkUserSession(),
-        builder: (context, sessionSnapshot) {
-          if (sessionSnapshot.connectionState == ConnectionState.done) {
-            if (sessionSnapshot.data == true) {
-              // User has active session, navigate to dashboard
-              return const DashboardScreen();
-            } else {
-              // No session found, check Firebase Auth
-              return StreamBuilder<User?>(
-                stream: FirebaseAuth.instance.authStateChanges(),
-                builder: (context, authSnapshot) {
-                  if (authSnapshot.connectionState == ConnectionState.active) {
-                    final User? user = authSnapshot.data;
-                    if (user != null) {
-                      // User is logged in via Firebase Auth, navigate to dashboard
-                      return const DashboardScreen();
-                    } else {
-                      // User is not logged in, show landing screen
-                      return const LandingScreen();
-                    }
-                  }
-                  // Show loading indicator while checking auth state
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                },
-              );
-            }
-          }
-          // Show loading indicator while checking session
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        },
-      ),
+      home: const SplashScreen(),
       routes: {
         '/admin-login': (context) => const LoginScreen(),
         '/matricule-login': (context) => const MatriculeLoginScreen(),
@@ -131,6 +86,125 @@ class MainApp extends StatelessWidget {
           }
         },
       },
+    );
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  // Check if user has an active session (for operators/technicians)
+  Future<bool> _checkUserSession() async {
+    try {
+      final user = await SessionService.getCurrentUser();
+      return user != null;
+    } catch (e) {
+      debugPrint('Error checking user session: $e');
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _checkUserSession(),
+      builder: (context, sessionSnapshot) {
+        if (sessionSnapshot.connectionState == ConnectionState.done) {
+          if (sessionSnapshot.data == true) {
+            // User has active session, navigate to dashboard
+            return const DashboardScreen();
+          } else {
+            // No session found, check Firebase Auth
+            return StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, authSnapshot) {
+                if (authSnapshot.connectionState == ConnectionState.active) {
+                  final User? user = authSnapshot.data;
+                  if (user != null) {
+                    // User is logged in via Firebase Auth, navigate to dashboard
+                    return const DashboardScreen();
+                  } else {
+                    // User is not logged in, show landing screen
+                    return const LandingScreen();
+                  }
+                }
+                // Show loading indicator while checking auth state
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              },
+            );
+          }
+        }
+        // Show loading indicator while checking session
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      },
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_animationController);
+    _animationController.forward();
+
+    // Navigate to main screen after 1 second
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        color: Colors.white, // Or your app's background color
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 200, // Adjust size as needed
+              height: 200,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
