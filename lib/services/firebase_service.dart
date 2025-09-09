@@ -716,6 +716,7 @@ class FirebaseService {
       // Get all technicians from Firestore
       final techniciansSnapshot = await _firestore
           .collection('technicians')
+          .where('token', isNotEqualTo: null)
           .get();
 
       final technicians = techniciansSnapshot.docs
@@ -763,27 +764,27 @@ class FirebaseService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      // Look up the user's FCM token from the user_tokens collection
+      // Look up the user's FCM token from the technician document
       if (matricule.isEmpty) {
         print('Error: Matricule is empty. Cannot send notification.');
         return;
       }
       print('Retrieving FCM token for user: $matricule');
-      final tokenDoc = await _firestore
-          .collection('user_tokens')
+      final technicianDoc = await _firestore
+          .collection('technicians')
           .doc(matricule)
           .get();
 
-      if (!tokenDoc.exists) {
+      if (!technicianDoc.exists) {
         print(
-          'No FCM token found for user $matricule. Cannot send notification.',
+          'Technician document not found for user $matricule. Cannot send notification.',
         );
         return;
       }
 
-      final tokenData = tokenDoc.data();
-      final fcmToken = tokenData != null
-          ? tokenData['fcmToken'] as String
+      final technicianData = technicianDoc.data();
+      final fcmToken = technicianData != null
+          ? technicianData['token'] as String?
           : null;
 
       if (fcmToken == null || fcmToken.isEmpty) {
@@ -876,11 +877,33 @@ class FirebaseService {
         return;
       }
 
-      await _firestore.collection('user_tokens').doc(matricule).set({
-        'fcmToken': fcmToken,
-        'updatedAt': FieldValue.serverTimestamp(),
+      // Defensive: Ensure token is not the string "null" or empty
+      if (fcmToken.trim().toLowerCase() == 'null' || fcmToken.trim().isEmpty) {
+        print(
+          'Warning: FCM token is invalid (null or empty string) for matricule $matricule',
+        );
+        return;
+      }
+
+      // Update the technician document with the token field
+      final technicianDocRef = _firestore
+          .collection('technicians')
+          .doc(matricule);
+      final technicianDoc = await technicianDocRef.get();
+
+      if (!technicianDoc.exists) {
+        print(
+          'Technician document not found for matricule $matricule. Cannot store FCM token.',
+        );
+        return;
+      }
+
+      await technicianDocRef.update({
+        'token': fcmToken,
+        'tokenUpdatedAt': FieldValue.serverTimestamp(),
       });
-      print('FCM token stored for user $matricule');
+
+      print('FCM token stored in technician document for user $matricule');
     } catch (e) {
       print('Error storing FCM token for user $matricule: $e');
       // Don't re-throw the error to prevent app crashes during initialization
@@ -890,8 +913,24 @@ class FirebaseService {
   // Remove FCM token when user logs out
   static Future<void> removeFCMToken(String matricule) async {
     try {
-      await _firestore.collection('user_tokens').doc(matricule).delete();
-      print('FCM token removed for user $matricule');
+      final technicianDocRef = _firestore
+          .collection('technicians')
+          .doc(matricule);
+      final technicianDoc = await technicianDocRef.get();
+
+      if (!technicianDoc.exists) {
+        print(
+          'Technician document not found for matricule $matricule. Cannot remove FCM token.',
+        );
+        return;
+      }
+
+      await technicianDocRef.update({
+        'token': FieldValue.delete(),
+        'tokenUpdatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('FCM token removed from technician document for user $matricule');
     } catch (e) {
       print('Error removing FCM token for user $matricule: $e');
     }
@@ -929,11 +968,21 @@ class FirebaseService {
 
     // Retrieve all technician tokens from Firestore
     final techniciansSnapshot = await _firestore
-        .collection('user_tokens')
+        .collection('technicians')
+        .where('token', isNotEqualTo: null)
         .get();
+
     final technicianTokens = techniciansSnapshot.docs
-        .map((doc) => doc.data()['fcmToken'] as String)
-        .where((token) => token.isNotEmpty)
+        .map((doc) {
+          final data = doc.data();
+          final token = data['token'];
+          if (token is String && token.isNotEmpty) {
+            return token;
+          }
+          return null;
+        })
+        .where((token) => token != null)
+        .cast<String>()
         .toList();
 
     if (technicianTokens.isEmpty) {
@@ -943,14 +992,21 @@ class FirebaseService {
 
     for (final token in technicianTokens) {
       try {
+        // Defensive checks to prevent null values in notification payload
+        if (token == null || token.isEmpty) {
+          print('Warning: Skipping notification for null or empty token');
+          continue;
+        }
+
+        final title = 'New Maintenance Issue';
+        final body = issue.description != null && issue.description.isNotEmpty
+            ? 'A new issue has been reported: ${issue.description}'
+            : 'A new maintenance issue has been reported';
+
         final response = await http.post(
           Uri.parse('https://wewire.vercel.app/api/sendNotification'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'token': token,
-            'title': 'New Maintenance Issue',
-            'body': 'A new issue has been reported: ${issue.description}',
-          }),
+          body: jsonEncode({'token': token, 'title': title, 'body': body}),
         );
 
         if (response.statusCode == 200) {
