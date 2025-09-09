@@ -110,9 +110,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Image.asset('assets/images/logo.png', width: 100, height: 150),
             const SizedBox(width: 8),
-            Text(
-              'Welcome, ${_user!.name}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Flexible(
+              child: Text(
+                'Welcome, ${_user!.name}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
           ],
         ),

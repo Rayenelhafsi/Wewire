@@ -1507,7 +1507,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                                   ? ' - ${_monthName(_selectedMonthInYearView!)}'
                                   : ''),
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1576,9 +1576,27 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                               ? 'Working Time: ${formatDuration(workingTime)}'
                               : 'No Work';
 
-                          return Tooltip(
-                            message:
-                                '${date.day}/${date.month}/$year\n$tooltip',
+                          return GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: Text(
+                                      'Work Details for ${date.day}/${date.month}/$year',
+                                    ),
+                                    content: _buildWorkDescriptionForDate(date),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                        child: const Text('Close'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
                             child: Container(
                               decoration: BoxDecoration(
                                 color: workingTime > Duration.zero
@@ -1590,6 +1608,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                               child: Text(
                                 date.day.toString(),
                                 style: TextStyle(
+                                  fontSize: 12,
                                   color: workingTime > Duration.zero
                                       ? Colors.black
                                       : Colors.grey.shade600,
@@ -1885,6 +1904,45 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     ];
     if (month < 1 || month > 12) return '';
     return monthNames[month];
+  }
+
+  // New helper method to build work description widget for a given date
+  Widget _buildWorkDescriptionForDate(DateTime date) {
+    // Filter sessions for the given date and selected operator if any
+    final sessionsForDate = _sessions.where((session) {
+      final sessionDate = DateTime(
+        session.startTime.year,
+        session.startTime.month,
+        session.startTime.day,
+      );
+      return sessionDate == date &&
+          (_selectedOperatorId == null ||
+              session.operatorMatricule == _selectedOperatorId);
+    }).toList();
+
+    if (sessionsForDate.isEmpty) {
+      return const Text('No work sessions for this date.');
+    }
+
+    return SizedBox(
+      width: double.maxFinite,
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: sessionsForDate.length,
+        itemBuilder: (context, index) {
+          final session = sessionsForDate[index];
+          final duration = session.endTime != null
+              ? session.endTime!.difference(session.startTime)
+              : Duration.zero;
+          return ListTile(
+            title: Text('Session ${index + 1}'),
+            subtitle: Text(
+              'Start: ${session.startTime}\nEnd: ${session.endTime ?? 'Ongoing'}\nDuration: ${_formatDuration(duration)}',
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
