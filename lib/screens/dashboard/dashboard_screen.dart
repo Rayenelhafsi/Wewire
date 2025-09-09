@@ -106,7 +106,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome, ${_user!.name}'),
+        title: Row(
+          children: [
+            Image.asset('assets/images/logo.png', width: 150, height: 150),
+            const SizedBox(width: 8),
+            Text(
+              'Welcome, ${_user!.name}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],

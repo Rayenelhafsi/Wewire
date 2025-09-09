@@ -151,8 +151,8 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.build, size: 80, color: Colors.blue),
-                const SizedBox(height: 32),
+                Image.asset('assets/images/logo.png', width: 150, height: 200),
+                const SizedBox(height: 5),
                 const Text(
                   'Maintenance System',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),

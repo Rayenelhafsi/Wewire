@@ -25,22 +25,17 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
-      
+
       // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       try {
         // Authenticate admin user using FirebaseService
-        final user = await FirebaseService.authenticateAdmin(
-          email,
-          password,
-        );
+        final user = await FirebaseService.authenticateAdmin(email, password);
 
         // Dismiss loading indicator
         Navigator.of(context).pop();
@@ -56,7 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
           // Authentication failed
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Authentication failed. Please check your credentials.'),
+              content: Text(
+                'Authentication failed. Please check your credentials.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -64,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } catch (e) {
         // Dismiss loading indicator
         Navigator.of(context).pop();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error during authentication: $e'),
@@ -89,18 +86,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.build,
-                    size: 80,
-                    color: Colors.blue,
+                  Image.asset(
+                    'assets/images/logo.png',
+                    width: 150,
+                    height: 200,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 5),
                   const Text(
                     'Maintenance System',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
@@ -143,10 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text(
-                      'Login',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: const Text('Login', style: TextStyle(fontSize: 16)),
                   ),
                 ],
               ),
