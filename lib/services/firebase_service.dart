@@ -4,8 +4,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_database/firebase_database.dart' hide Query;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart';
 import '../models/operator_model.dart';
@@ -77,6 +78,66 @@ class FirebaseService {
         })
         .where((uid) => uid != null)
         .cast<String>();
+  }
+
+  // Get machine IDs for dropdown
+  static Stream<List<String>> getMachineIds() {
+    return _firestore
+        .collection('machines')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
+  // Get operator matricules for dropdown
+  static Stream<List<String>> getOperatorMatricules() {
+    return _firestore
+        .collection('operators')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
+  // Get filtered sessions based on optional parameters
+  static Stream<List<Session>> getFilteredSessions({
+    DateTimeRange? dateRange,
+    String? machineId,
+    String? operatorMatricule,
+  }) {
+    Query query = _firestore.collection('sessions');
+
+    // Apply filters if provided
+    if (machineId != null && machineId.isNotEmpty) {
+      query = query.where('machineReference', isEqualTo: machineId);
+    }
+
+    if (operatorMatricule != null && operatorMatricule.isNotEmpty) {
+      query = query.where('operatorMatricule', isEqualTo: operatorMatricule);
+    }
+
+    return query
+        .orderBy('startTime', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => Session.fromJson(doc.data()! as Map<String, dynamic>),
+              )
+              .toList(),
+        )
+        .map((sessions) {
+          // Apply date range filter in memory since Firestore doesn't support complex date range queries easily
+          if (dateRange != null) {
+            return sessions.where((session) {
+              final sessionDate = session.startTime;
+              return sessionDate.isAfter(
+                    dateRange.start.subtract(const Duration(days: 1)),
+                  ) &&
+                  sessionDate.isBefore(
+                    dateRange.end.add(const Duration(days: 1)),
+                  );
+            }).toList();
+          }
+          return sessions;
+        });
   }
 
   /// Manual fetch of current scans data for testing read access and data structure.
@@ -327,8 +388,11 @@ class FirebaseService {
         .where('status', whereIn: ['open', 'inProgress'])
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Session.fromJson(doc.data())).toList(),
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => Session.fromJson(doc.data()! as Map<String, dynamic>),
+              )
+              .toList(),
         );
   }
 
@@ -392,8 +456,11 @@ class FirebaseService {
         .orderBy('startTime', descending: true)
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Session.fromJson(doc.data())).toList(),
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => Session.fromJson(doc.data()! as Map<String, dynamic>),
+              )
+              .toList(),
         );
   }
 

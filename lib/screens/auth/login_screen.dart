@@ -54,7 +54,6 @@ class _LoginScreenState extends State<LoginScreen> {
               content: Text(
                 'Authentication failed. Please check your credentials.',
               ),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -63,10 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.of(context).pop();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error during authentication: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error during authentication: $e')),
         );
       }
     }

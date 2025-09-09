@@ -97,7 +97,6 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Invalid matricule. Please check your matricule.'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -106,10 +105,7 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
       Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error during authentication: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error during authentication: $e')),
       );
     }
   }
@@ -126,11 +122,18 @@ class _MatriculeLoginScreenState extends State<MatriculeLoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error, size: 64, color: Colors.red),
+              Icon(
+                Icons.error,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
-                style: const TextStyle(fontSize: 16, color: Colors.red),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.error,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),

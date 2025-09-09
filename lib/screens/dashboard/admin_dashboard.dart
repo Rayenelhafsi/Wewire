@@ -13,6 +13,7 @@ import '../../screens/chat/chat_screen.dart';
 import '../../screens/dashboard/work_requests_management.dart';
 import '../../screens/dashboard/work_history_management.dart';
 import '../../screens/dashboard/analytics_dashboard.dart';
+import '../../screens/dashboard/produced_quantity_history_management.dart';
 
 class AdminDashboard extends StatefulWidget {
   final app_models.User user;
@@ -39,6 +40,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       WorkRequestsManagement(), // New section for work requests
       WorkHistoryManagement(), // New section for work history
       AnalyticsDashboard(), // Analytics dashboard
+      ProducedQuantityHistoryManagement(), // Produced quantity history
     ];
   }
 
@@ -66,7 +68,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(color: Colors.blue),
+              decoration: const BoxDecoration(
+                color: Color.fromARGB(255, 190, 40, 40),
+              ),
               child: Text(
                 'Admin Panel',
                 style: const TextStyle(color: Colors.white, fontSize: 24),
@@ -132,6 +136,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
               selected: _selectedIndex == 6,
               onTap: () {
                 _onItemTapped(6);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.production_quantity_limits),
+              title: const Text('Produced Quantity History'),
+              selected: _selectedIndex == 7,
+              onTap: () {
+                _onItemTapped(7);
                 Navigator.pop(context);
               },
             ),
