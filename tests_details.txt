@@ -1,0 +1,64 @@
+Les tests d'implémentation et limites de la solution
+
+Après avoir complété et validé la première release de l’application Wewire, nous entrons désormais dans une phase cruciale : le déploiement sur une machine réelle pour effectuer les premiers tests terrain. Cette étape permettra de vérifier le bon fonctionnement de l’ensemble des modules, d’évaluer la robustesse de l’intégration matérielle et logicielle, et d’identifier d’éventuelles améliorations avant la mise en production.
+
+L’application Wewire a été déployée avec succès via Firebase comme le montre la figure hébergement sur un site, en exploitant les services d’hébergement et d’authentification sécurisée. Elle est désormais accessible en ligne à travers un site web dédié, restreint aux utilisateurs autorisés uniquement, grâce à un système de gestion des accès basé sur les rôles et les permissions.
+
+C’est le moment d’effectuer les premiers tests de téléchargement et d’exécution de l’application Wewire sur une machine physique. L’objectif est de valider son intégration sur les second écrans des machines, qui serviront d’interfaces dédiées. Cette approche est plus adaptée que l’utilisation via smartphone, bien que l’application soit déjà pleinement fonctionnelle sur mobile.
+Plusieurs automates comme Airburg 375V, LWM molding machine 1150T et la machine de sertissage Schafer des cables de Mercedes supporte les 2emes écrans comme le montre la figure les 2emes écrans des machines.
+
+J’ai donc opté pour un test sur ces écrans secondaires afin d’évaluer la compatibilité et l’ergonomie. Lors de l’installation sur machine, un problème est survenu lié à l’absence du fichier VCRUNTIME1401.dll comme le montre la figure implémentation sur les machines nécessaire à l’exécution du programme. Après avoir téléchargé et intégré ce composant manquant, l’application a pu fonctionner correctement, confirmant ainsi sa portabilité sur les dispositifs ciblés.
+
+Tests des écrans (Screen Tests)
+
+Les tests des écrans ont été effectués pour valider l'interface utilisateur et l'expérience utilisateur sur différents appareils et résolutions. Chaque écran a été testé pour la navigation, la responsivité et la cohérence visuelle.
+
+- Écran de connexion (Login Screen): Test de l'authentification avec différents rôles (opérateur, technicien, administrateur). Vérification de la gestion des erreurs pour identifiants incorrects.
+- Écran d'accueil (Landing Screen): Validation de la redirection basée sur le rôle de l'utilisateur.
+- Tableaux de bord (Dashboards): Tests pour les écrans opérateur, technicien, administrateur et analytique. Vérification de l'affichage des données en temps réel, des graphiques et des statistiques.
+- Écran de chat (Chat Screen): Test des messages privés et de groupe, envoi et réception de notifications.
+- Écrans de formulaires (Forms): Validation des formulaires pour ajouter/modifier machines, opérateurs et techniciens, avec vérification des validations de champs.
+- Écran d'historique (History Screens): Tests pour l'historique de travail et des quantités produites, filtres par date et machine.
+
+Tests d'intégrité (Integrity Tests)
+
+Les tests d'intégrité ont porté sur la cohérence des données et la sécurité du système.
+
+- Intégrité des données Firestore: Vérification que les données utilisateurs, machines et sessions sont correctement stockées et récupérées sans corruption.
+- Sécurité des accès: Tests des permissions basées sur les rôles, empêchant l'accès non autorisé aux fonctionnalités sensibles.
+- Synchronisation des données: Validation de la synchronisation en temps réel entre les appareils et le serveur Firebase.
+- Gestion des sessions: Tests pour le démarrage, la pause et l'arrêt des sessions de travail, avec sauvegarde automatique.
+
+Tests des composants (Component Tests)
+
+Les composants individuels ont été testés pour leur fonctionnalité isolée.
+
+- Composants de navigation: Drawer et bottom navigation bar, test de la navigation fluide entre écrans.
+- Composants de données: Listes, tableaux et graphiques (pie charts, bar charts), vérification de l'affichage correct des données.
+- Composants d'authentification: Boutons de connexion, gestion des états de chargement et erreurs.
+- Composants de notification: Affichage des notifications push, gestion des permissions.
+- Composants RFID: Intégration avec ESP32 pour la lecture des tags, validation de l'identification automatique.
+
+Tests des fonctionnalités (Functionality Tests)
+
+Les fonctionnalités clés de l'application ont été testées de bout en bout.
+
+- Gestion des utilisateurs: Création, modification et suppression d'opérateurs, techniciens et administrateurs.
+- Gestion des machines: Ajout de nouvelles machines, suivi de l'état (en marche, arrêt, maintenance).
+- Suivi des sessions: Démarrage du travail via RFID, enregistrement des heures de production.
+- Système de chat: Envoi de messages entre utilisateurs, notifications en temps réel.
+- Analyses et rapports: Génération de statistiques sur la production, maintenance et performances des opérateurs.
+- Notifications: Envoi automatique de notifications pour les problèmes de maintenance ou les changements d'état des machines.
+- Historique: Consultation des activités passées, filtres avancés pour les rapports.
+
+Conclusion
+
+Ce chapitre a abordé la phase cruciale d'implémentation et de validation de la solution Wewire. Nous avons initié cette étape en décrivant l'environnement de travail, comprenant à la fois les aspects matériels et logiciels, qui ont servi de base au développement. L'architecture modulaire et distribuée de l'application, basée sur les technologies Flutter, Firebase et ESP32, a été analysée en détail afin de mettre en lumière les choix techniques stratégiques qui garantissent la performance, la scalabilité et la maintenabilité du système.
+
+La conception des interfaces utilisateur, spécifiquement adaptées aux besoins des opérateurs, techniciens et administrateurs, a mis en évidence la polyvalence de l'application. Chaque interface a été soigneusement élaborée pour améliorer l'expérience utilisateur et simplifier les processus métier, de la gestion des sessions de production au suivi des interventions techniques.
+
+Par ailleurs, la planification et la mise en œuvre du sous-système RFID, incluant le câblage électronique et l'intégration logicielle, se sont déroulées avec précision. La validation du montage à travers des simulations et une implémentation réelle a confirmé la fiabilité de ce module clé pour l'identification automatique des opérateurs.
+
+Enfin, le déploiement initial sur les machines de production et la résolution des problèmes de compatibilité système ont marqué une étape essentielle vers l'industrialisation de la solution. Les premiers retours du terrain témoignent du bon fonctionnement global de l'écosystème Wewire et de sa capacité à s'intégrer de manière harmonieuse dans l'environnement industriel cible.
+
+Les tests effectués à ce stade confirment non seulement la stabilité technique de l'application, mais aussi son adéquation aux exigences fonctionnelles spécifiques à Wewire. Ils préparent ainsi le terrain pour une mise en place progressive sur l'ensemble du parc machines, tout en identifiant des pistes d'optimisation pour les futures itérations.

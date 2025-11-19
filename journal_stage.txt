@@ -1,0 +1,52 @@
+Journal de Stage - Développement de l'Application Maintenance Communication System
+
+Semaine 1 : Du lundi 26 août au vendredi 30 août 2025
+
+Lundi 26 août 2025 :
+Aujourd'hui, j'ai continué la préparation des écrans de l'application en me concentrant sur l'écran admin. J'ai commencé à configurer Firestore pour la gestion des données utilisateurs et machines. J'ai également ajouté des fonctionnalités de base pour la navigation entre les écrans.
+
+Mardi 27 août 2025 :
+J'ai travaillé sur la correction des problèmes de démarrage de l'application sur l'émulateur Android. J'ai implémenté l'autorisation des notifications pour améliorer l'expérience utilisateur. Enfin, j'ai corrigé la logique de sauvegarde de session lors de la connexion pour éviter les déconnexions inattendues.
+
+Mercredi 28 août 2025 :
+J'ai passé la journée à préparer le déploiement sur Vercel, en configurant les variables d'environnement pour Firebase Admin. J'ai également travaillé sur l'envoi de notifications via des fonctions Node.js. J'ai corrigé des problèmes dans le système de chat, notamment le nettoyage de la zone de saisie après envoi de message.
+
+Jeudi 29 août 2025 :
+J'ai ajouté et corrigé la gestion de l'historique de travail, permettant aux utilisateurs de consulter leurs activités passées. J'ai également fait des modifications dans l'interface admin concernant le démarrage du travail. J'ai continué à peaufiner les fonctionnalités de chat entre techniciens et administrateurs.
+
+Vendredi 30 août 2025 :
+J'ai commencé à travailler sur le problème RFID, en corrigeant l'acceptation de tous les tags UID pour le démarrage sur machine. J'ai également fait des corrections mineures sur l'interface et préparé les données pour la production. J'ai terminé la semaine en testant les nouvelles fonctionnalités ajoutées.
+
+Semaine 2 : Du lundi 2 septembre au vendredi 6 septembre 2025
+
+Lundi 2 septembre 2025 :
+J'ai finalisé la logique du système RFID pour le démarrage du travail. J'ai ajouté les données nécessaires pour la production tout en planifiant des investigations supplémentaires. J'ai mis à jour le moteur Node.js vers la version 22.x pour Vercel et corrigé les pixels débordants sur l'écran d'analyses.
+
+Mardi 3 septembre 2025 :
+J'ai remplacé la barre de navigation inférieure par un tiroir dans les écrans admin pour une meilleure ergonomie. J'ai corrigé la conception du tableau de bord opérateur et résolu les problèmes de déconnexion après les tests. J'ai également géré le cas où la session n'est pas fermée correctement.
+
+Mercredi 4 septembre 2025 :
+J'ai ajouté des filtres pour les périodes de temps dans les analyses statistiques. J'ai implémenté toutes les statistiques nécessaires pour un suivi complet des performances. J'ai continué à améliorer la logique des calculs analytiques pour plus de précision.
+
+Jeudi 5 septembre 2025 :
+J'ai corrigé la logique analytique pour assurer l'exactitude des données affichées. J'ai préparé l'écran de test pour valider les nouvelles fonctionnalités. J'ai également corrigé deux variables analytiques pour améliorer la fiabilité des rapports.
+
+Vendredi 6 septembre 2025 :
+J'ai ajouté un bouton de test pour démarrer/arrêter les analyses. J'ai corrigé la variable "maintenance en cours" pour un suivi précis des interventions. J'ai résolu les problèmes liés aux machines arrêtées et prêtes pour le travail, ainsi que celles en maintenance.
+
+Semaine 3 : Du lundi 9 septembre au vendredi 13 septembre 2025
+
+Lundi 9 septembre 2025 :
+J'ai corrigé le problème d'incrémentation pour les machines arrêtées prêtes pour le travail. J'ai implémenté la logique globale pour les machines après arrêt. J'ai corrigé la logique du timer de démarrage du travail et résolu le rafraîchissement du tableau de bord opérateur après résolution d'un problème.
+
+Mardi 10 septembre 2025 :
+J'ai corrigé les calculs analytiques pour plus de précision. J'ai fait des corrections sur le graphique en secteurs et ajouté un toggle pour le pourcentage de temps. J'ai également corrigé le filtre par année pour une meilleure navigation temporelle.
+
+Mercredi 11 septembre 2025 :
+J'ai commencé à corriger les problèmes Firestore pour améliorer la stabilité des données. J'ai corrigé les statistiques des opérateurs pour un suivi plus fiable. J'ai testé l'envoi de notifications pour valider le système de communication.
+
+Jeudi 12 septembre 2025 :
+J'ai ajouté le logo à l'application et appliqué sa conception sur tous les écrans. J'ai changé le style de police du texte pour une meilleure lisibilité. J'ai créé l'écran d'historique des quantités produites pour un suivi complet de la production.
+
+Vendredi 13 septembre 2025 :
+J'ai corrigé les problèmes de débordement dans l'interface. J'ai préparé et déployé la release 1.0 de l'application. J'ai finalisé tous les tests et corrections pour assurer la stabilité de la version de production.

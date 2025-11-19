@@ -1,0 +1,396 @@
+[33mcommit 797a08ac4f98e60f46bc79ad52aa12ca38441f6c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 22:56:40 2025 +0100
+
+    "deploy release1.0"
+
+[33mcommit cec2d42c298ee4125b3207ba61370e59851f7ec2[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 21:15:20 2025 +0100
+
+    "fixed overflow issues"
+
+[33mcommit 0ab5a892cfdaa2bae860b6ab6a041d4f3d24ef22[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 20:36:32 2025 +0100
+
+    "produced history screen"
+
+[33mcommit addc7c0e5b121e68b139b83fb6ec836c2ee3ec17[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 19:40:55 2025 +0100
+
+    "text new fontstyle"
+
+[33mcommit ce9b23dfd3129bafee518c08551b3a3e2ab2005f[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 19:28:16 2025 +0100
+
+    "logo design over all screens"
+
+[33mcommit d33a265bc4c2802b6be229cc571dbfff71cb80fc[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 19:12:14 2025 +0100
+
+    "logo add"
+
+[33mcommit 90eaf7fec3a23d6f563db7a1b92f512ee8124de4[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 18:32:20 2025 +0100
+
+    "test send notif"
+
+[33mcommit 5f9adbaa5d12ff535557863c86ec0581316c9bee[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 18:04:18 2025 +0100
+
+    "fix operator statistics"
+
+[33mcommit 7a8f37da2c3bd9c7053d8609c422daf9cdcc2378[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 9 17:42:14 2025 +0100
+
+    "about to fix firestore"
+
+[33mcommit db6802b50a07396fd6f02676044fdb6a06a04734[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 22:54:28 2025 +0100
+
+    "year filter fixed "
+
+[33mcommit 17894a93e1543f2ea9cb1539bc39d0473a8906e0[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 18:22:58 2025 +0100
+
+    "pie chart fixes and added toggle time percentage"
+
+[33mcommit fa617781580bcbb1dc9acfcceb0ad44301e340af[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 17:41:19 2025 +0100
+
+    "fix calculations"
+
+[33mcommit 3049824be61d762c50a5aa84f15906d88b0072b8[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 17:31:22 2025 +0100
+
+    "fix the stop after an issue is resolved by refresh the operator dashboard calling setstate"
+
+[33mcommit f77eac75e969da400ea625b24febf3a89fa40d82[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 17:24:15 2025 +0100
+
+    "correct the iproblem with start working timer logic "
+
+[33mcommit f9d9a6924bffc55247974e0266d87d431101bab0[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 16:45:18 2025 +0100
+
+    "fix logic for a machine after stop , now i will implement the logic globally"
+
+[33mcommit e9b60938183486a66e443d5f4b6bf6aa3982a172[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 8 16:39:24 2025 +0100
+
+    "problem inn incrementing stopped ready for work "
+
+[33mcommit 0189d4a2af758a2acc112028f803f37bd19267a8[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sun Sep 7 19:31:00 2025 +0100
+
+    "fix stopped ready for work and maintenance in progress"
+
+[33mcommit ae417b4de2aff8ec0005b71765447b6822d81aca[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sun Sep 7 18:14:40 2025 +0100
+
+    "corrected the maintenance in progress variable"
+
+[33mcommit 04a9def86b891080758d899e74cfcd5db1f1cc23[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sun Sep 7 13:13:26 2025 +0100
+
+    "start stop analytics button for test"
+
+[33mcommit 37edb4e3255cdc72a094b0c1cb2fce87cb5d54b9[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sat Sep 6 17:51:21 2025 +0100
+
+    "corrected two analytics variables"
+
+[33mcommit dc59991801813e3864e18d7c0e352a45b05a9e41[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sat Sep 6 14:20:55 2025 +0100
+
+    "before test screen"
+
+[33mcommit b6981da56e23f2721235fa09123cd5776174c33e[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Fri Sep 5 20:55:59 2025 +0100
+
+    "correct analytics logic"
+
+[33mcommit 4b964278bdcd3a2ad74df3a6686ed7e1f5a4d6f5[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Wed Sep 3 17:51:15 2025 +0100
+
+    "stats all"
+
+[33mcommit 97230b9e757ecdecbc3dd368cb7f7b16f32ae471[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Wed Sep 3 17:30:41 2025 +0100
+
+    "filters for time period"
+
+[33mcommit 79340ffa1f937dd2c8fe233bfdc15a31e6a87d1d[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 23:56:33 2025 +0100
+
+    "the session not closed case"
+
+[33mcommit cf829ef5e4ff1ecb7616571bb9cb5347215631c1[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 23:23:32 2025 +0100
+
+    "fixed logout issues after tests and code enhancements ragarding sign out"
+
+[33mcommit a14f9dd1eb3153ac5f81730cf0bca8c441ac9ecf[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 23:17:39 2025 +0100
+
+    "oeprator dashboard design fix"
+
+[33mcommit f520ebca7a408f4f4be371110c410ecc2dbc1da9[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 23:11:26 2025 +0100
+
+    "drawer instead of bottom nav bar in admin screens"
+
+[33mcommit 6f742c73e391950a5e3918f24006ca037a5c4e8f[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 22:54:51 2025 +0100
+
+    "fix the overflowing pixels analytics screen"
+
+[33mcommit 182b85c724e708fb885d506f83e08d4b99ad317f[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 21:35:43 2025 +0100
+
+    Update Node.js engine to 22.x for Vercel
+
+[33mcommit 8adf5a86f85af2931d8240d9dedd2f70abc065f6[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 21:26:03 2025 +0100
+
+    "added the needed data for production but still to investigate the real needed  data"
+
+[33mcommit 516dc8882e1eb034cde3fd0a89ea96b14201d39f[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Tue Sep 2 21:03:45 2025 +0100
+
+    "rfid system is logic set "
+
+[33mcommit c629aa14218b8e90fdb3fb691c606e4328112956[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 1 14:39:38 2025 +0100
+
+    "rfid fix "
+
+[33mcommit 0ed81ebf387842a256077ee40029a085a243d67d[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 1 13:47:07 2025 +0100
+
+    "fix rfid start working"
+
+[33mcommit 6b13b48f42c678165479dd2b960a0d65db52e33b[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Mon Sep 1 11:26:36 2025 +0100
+
+    "last rfid fix"
+
+[33mcommit 7587b4ac949a78862572d04a5b3e3bbd7afc3c35[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sun Aug 31 22:32:28 2025 +0100
+
+    "start with RFID problem now fixing accepting all tags uid to start on machine when a specific operator is logged in"
+
+[33mcommit b27d42d11cb9ad355b4f005caa1d8d48d4445f40[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Sat Aug 30 18:11:02 2025 +0100
+
+    "e"
+
+[33mcommit e21a066912c1e630df2d64f67393fc20a017e225[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Fri Aug 29 16:06:23 2025 +0100
+
+    "history wrok management  added and fixed"
+
+[33mcommit 93923f4bd20c7dde8d7aa136e2669beb807ef745[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 19:47:09 2025 +0100
+
+    "admin edits regarding start work"
+
+[33mcommit 370872eaab7bc94332c4dccac70ec59a5d128fc1[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 18:20:22 2025 +0100
+
+    "fix chat input zone not clearing message when sending"
+
+[33mcommit 3323f5e7b484316e33e8ea69b98b80eafbd30954[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 17:46:56 2025 +0100
+
+    "chats loaded"
+
+[33mcommit ef585e2666d856e4361c44cbd2e3e755f1f6e225[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 17:09:50 2025 +0100
+
+    "intervention à distance ou in person"
+
+[33mcommit 1b4d46594f7171108e1ec6d0e38275110fa3713e[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 03:08:01 2025 +0100
+
+    "last"
+
+[33mcommit 4a920b97bfbd89c5f3830eab56d90fb423a3ff26[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:57:35 2025 +0100
+
+    "changes"
+
+[33mcommit cdf4e8ec4bb77eb7588c3a5f7c80b19c8d70db93[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:36:30 2025 +0100
+
+    "again"
+
+[33mcommit 88dee29a5fcb0ab383a0630a3c741e7de319d1d0[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:35:43 2025 +0100
+
+    "fixing"
+
+[33mcommit c3482c92770fefb48580a55fede6929789162e6a[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:31:33 2025 +0100
+
+    "ghalta"
+
+[33mcommit 661b8122e274d633e4a49a0c5f11b1ec06faee4d[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:23:41 2025 +0100
+
+    "vercel"
+
+[33mcommit 5d8ffe1bd243a15a47cec5d817732fe565c77e3a[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:23:07 2025 +0100
+
+    Ignore serviceAccountKey.json
+
+[33mcommit 6563364ebd3f551e353f0688c40f940b800a8816[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:10:31 2025 +0100
+
+    Ignore serviceAccountKey.json
+
+[33mcommit 2ec933813fb7d094555c30ba6c078ba2ce14bfb6[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:09:26 2025 +0100
+
+    Use env variable for Firebase Admin
+
+[33mcommit efe0bf6a7fef0f4c33d5f277c0940257cd546f21[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 02:04:07 2025 +0100
+
+    Specify Node.js runtime for Vercel again
+
+[33mcommit a6da9cd04b032ef4b61019e32d9147a4c1775fd2[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 01:53:08 2025 +0100
+
+    Specify Node.js runtime for Vercel again
+
+[33mcommit 62f107a34b2104d938540ad199c46c5a8211d9d0[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 01:47:30 2025 +0100
+
+    Specify Node.js runtime for Vercel again
+
+[33mcommit 34d9b9444976e750366eee288848d95e316bc878[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 01:39:30 2025 +0100
+
+    Specify Node.js runtime for Vercel
+
+[33mcommit 4c58982e7520ab79edfe8954d387e06ba7ae0f93[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 01:22:30 2025 +0100
+
+    Remove serviceAccountKey.json from Git tracking
+
+[33mcommit 94a6c5dc4d9bf68f9cd0d1e1236fffd67995c2c9[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 01:12:14 2025 +0100
+
+    "vercel preparation"
+
+[33mcommit e4888428ca4d86ff0967629efe01710ed51b309a[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 28 00:30:51 2025 +0100
+
+    "try to send notif with node function http post "
+
+[33mcommit dfc352ce2483e22fee152dabf6faa26b8377480a[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Wed Aug 27 19:19:14 2025 +0100
+
+    "login save session fix"
+
+[33mcommit 3abb48a029574593f943effb69161f6b76da5e5b[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Wed Aug 27 18:37:48 2025 +0100
+
+    "notification authorization"
+
+[33mcommit 9b6d4dee77b2340862bebc86d61e6a407784820f[m
+Author: elhafsi rayen <elhafsirayen@gmail.com>
+Date:   Wed Aug 27 18:17:58 2025 +0100
+
+    "fix problem regarding app start in android emulator"
+
+[33mcommit 945dce28809ac1b7e84902271cae64632c383dc7[m
+Author: elhafsirayen <elhafsirayen@gmail.com>
+Date:   Sat Aug 23 20:40:44 2025 +0200
+
+    "last edits
+
+[33mcommit 20bade24b76c498d6ace635c1d2eca03eaed781f[m
+Author: elhafsirayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 21 23:31:08 2025 +0200
+
+    "chat added between technician and admin"
+    'last edits'
+
+[33mcommit 7d9e33c79bd9a22aa8cbfa5c576088b406b994cc[m
+Author: elhafsirayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 21 22:32:16 2025 +0200
+
+    "fix problem login"
+
+[33mcommit 0f64497bcfa9f30dff560243622086764d446cb8[m
+Author: elhafsirayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 21 21:12:54 2025 +0200
+
+    "fix screens and add functionalities"
+
+[33mcommit 016a7a3a0a9c0a12944e392f5c71b86786a8037b[m
+Author: elhafsirayen <elhafsirayen@gmail.com>
+Date:   Thu Aug 21 19:48:44 2025 +0200
+
+    "first commit screens preparations and started with admin screen and firestore configurations"
